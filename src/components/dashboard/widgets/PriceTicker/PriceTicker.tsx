@@ -37,7 +37,8 @@ export default function PriceTicker({ id, config }: WidgetProps) {
     }
 
     fetchQuote()
-    const interval = setInterval(fetchQuote, config.refreshInterval || 5000)
+    // Update every 2 seconds for real-time feel
+    const interval = setInterval(fetchQuote, config.refreshInterval || 2000)
     return () => clearInterval(interval)
   }, [symbol, activeSymbol, config.refreshInterval])
 

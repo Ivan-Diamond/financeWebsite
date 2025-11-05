@@ -1,106 +1,154 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
+import { useDashboardStore } from '@/stores/dashboardStore'
 
-interface FlowItem {
-  time: string
+interface OptionsFlowData {
   symbol: string
   strike: number
+  expiry: string
   type: 'call' | 'put'
-  premium: number
   volume: number
-  signal: 'big' | 'buy' | 'sell' | 'mid'
+  openInterest: number
+  lastPrice: number
+  bid: number
+  ask: number
+  impliedVolatility?: number
+  delta?: number
+  timestamp: number
+  isUnusual: boolean
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+}
+
+interface FlowMeta {
+  symbol: string
+  expiry: string
+  totalFlows: number
+  unusualCount: number
+  avgVolume: number
+  volumeThreshold: number
 }
 
 export default function OptionsFlow({ id, config }: WidgetProps) {
-  // Mock data for demonstration
-  const [flows] = useState<FlowItem[]>([
-    { time: '2:45 PM', symbol: 'AAPL', strike: 185, type: 'call', premium: 2500000, volume: 15230, signal: 'buy' },
-    { time: '2:43 PM', symbol: 'TSLA', strike: 250, type: 'put', premium: 1800000, volume: 8940, signal: 'sell' },
-    { time: '2:40 PM', symbol: 'NVDA', strike: 500, type: 'call', premium: 3200000, volume: 12100, signal: 'big' },
-    { time: '2:38 PM', symbol: 'AAPL', strike: 180, type: 'put', premium: 890000, volume: 4560, signal: 'mid' },
-  ])
+  const [flows, setFlows] = useState<OptionsFlowData[]>([])
+  const [meta, setMeta] = useState<FlowMeta | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'calls' | 'puts' | 'unusual'>('all')
+  const [sortBy, setSortBy] = useState<'volume' | 'price' | 'oi'>('volume')
+  
+  const activeSymbol = useDashboardStore(state => state.activeSymbol)
+  const symbol = config.symbol || activeSymbol
 
-  const getSignalIcon = (signal: string) => {
-    switch (signal) {
-      case 'big': return '🔥'
-      case 'buy': return '🟢'
-      case 'sell': return '🔴'
-      default: return '🟡'
+  useEffect(() => {
+    fetchFlows()
+    const interval = setInterval(fetchFlows, 30000)
+    return () => clearInterval(interval)
+  }, [symbol, activeSymbol])
+
+  const fetchFlows = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/options/flow?symbol=${symbol}&limit=50`)
+      const data = await response.json()
+      
+      if (data.flows) {
+        setFlows(data.flows)
+        setMeta(data.meta)
+      }
+    } catch (error) {
+      console.error('Failed to fetch options flow:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getSignalLabel = (signal: string) => {
-    switch (signal) {
-      case 'big': return 'Big'
-      case 'buy': return 'Buy'
-      case 'sell': return 'Sell'
-      default: return 'Mid'
-    }
+  const filteredFlows = flows.filter(flow => {
+    if (filter === 'calls') return flow.type === 'call'
+    if (filter === 'puts') return flow.type === 'put'
+    if (filter === 'unusual') return flow.isUnusual
+    return true
+  })
+
+  const sortedFlows = [...filteredFlows].sort((a, b) => {
+    if (sortBy === 'volume') return b.volume - a.volume
+    if (sortBy === 'price') return b.lastPrice - a.lastPrice
+    if (sortBy === 'oi') return b.openInterest - a.openInterest
+    return 0
+  })
+
+  const getSentimentColor = (sentiment: string) => {
+    if (sentiment === 'bullish') return 'text-green-400'
+    if (sentiment === 'bearish') return 'text-red-400'
+    return 'text-gray-400'
+  }
+
+  const getSentimentBg = (sentiment: string) => {
+    if (sentiment === 'bullish') return 'bg-green-500/10'
+    if (sentiment === 'bearish') return 'bg-red-500/10'
+    return 'bg-gray-500/10'
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-gray-700">
-        <div className="text-sm font-semibold text-white">Options Flow</div>
-        <div className="text-xs text-gray-400 mt-1">
-          Tracking unusual activity
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-semibold text-white">Options Flow: {symbol}</div>
+          {meta && <div className="text-xs text-gray-400">{meta.unusualCount} unusual / {meta.totalFlows} total</div>}
         </div>
-      </div>
-
-      {/* Flow Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-750 sticky top-0">
-            <tr className="text-left text-gray-400">
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Symbol</th>
-              <th className="px-3 py-2 font-medium text-right">Strike</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium text-right">Premium</th>
-              <th className="px-3 py-2 font-medium text-right">Vol</th>
-              <th className="px-3 py-2 font-medium text-center">Signal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {flows.map((flow, i) => (
-              <tr key={i} className="border-b border-gray-700 hover:bg-gray-750">
-                <td className="px-3 py-2 text-gray-400">{flow.time}</td>
-                <td className="px-3 py-2 font-medium text-white">{flow.symbol}</td>
-                <td className="px-3 py-2 text-right text-white">{flow.strike}</td>
-                <td className="px-3 py-2">
-                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${
-                    flow.type === 'call' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                  }`}>
-                    {flow.type}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right text-white font-medium">
-                  ${(flow.premium / 1000000).toFixed(2)}M
-                </td>
-                <td className="px-3 py-2 text-right text-gray-400">
-                  {flow.volume.toLocaleString()}
-                </td>
-                <td className="px-3 py-2 text-center">
-                  <span className="inline-flex items-center space-x-1">
-                    <span>{getSignalIcon(flow.signal)}</span>
-                    <span className="text-gray-400 text-[10px]">{getSignalLabel(flow.signal)}</span>
-                  </span>
-                </td>
-              </tr>
+        <div className="flex gap-2">
+          <div className="flex gap-1">
+            {['all', 'calls', 'puts', 'unusual'].map((f) => (
+              <button key={f} onClick={() => setFilter(f as any)} className={`px-2 py-1 text-xs rounded capitalize ${filter === f ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>{f}</button>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-2 border-t border-gray-700 bg-blue-900/10">
-        <div className="text-xs text-blue-400">
-          💡 Real-time flow data requires WebSocket connection (Phase 5)
+          </div>
+          <div className="flex gap-1 ml-auto">
+            {['volume', 'price', 'oi'].map((s) => (
+              <button key={s} onClick={() => setSortBy(s as any)} className={`px-2 py-1 text-xs rounded uppercase ${sortBy === s ? 'bg-gray-600' : 'bg-gray-800'}`}>{s}</button>
+            ))}
+          </div>
         </div>
       </div>
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center h-full"><div className="animate-spin h-8 w-8 border-b-2 border-blue-500 rounded-full"></div></div>
+        ) : sortedFlows.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500 text-sm">No options flow data</div>
+        ) : (
+          <div className="divide-y divide-gray-700">
+            {sortedFlows.map((flow, idx) => (
+              <div key={idx} className={`px-4 py-2 hover:bg-gray-800 ${flow.isUnusual ? 'border-l-2 border-yellow-500' : ''} ${getSentimentBg(flow.sentiment)}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${flow.type === 'call' ? 'bg-green-600' : 'bg-red-600'} text-white`}>{flow.type.toUpperCase()}</span>
+                    <span className="text-sm font-semibold text-white">${flow.strike}</span>
+                    {flow.isUnusual && <span className="text-xs px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded">Unusual</span>}
+                  </div>
+                  <div className={`text-xs font-medium ${getSentimentColor(flow.sentiment)}`}>{flow.sentiment.toUpperCase()}</div>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  <div><div className="text-gray-500">Volume</div><div className="text-white font-medium">{flow.volume.toLocaleString()}</div></div>
+                  <div><div className="text-gray-500">OI</div><div className="text-white font-medium">{flow.openInterest.toLocaleString()}</div></div>
+                  <div><div className="text-gray-500">Price</div><div className="text-white font-medium">${flow.lastPrice.toFixed(2)}</div></div>
+                  <div><div className="text-gray-500">IV</div><div className="text-white font-medium">{flow.impliedVolatility ? `${(flow.impliedVolatility * 100).toFixed(1)}%` : 'N/A'}</div></div>
+                </div>
+                {meta && (
+                  <div className="mt-2"><div className="h-1 bg-gray-700 rounded-full overflow-hidden"><div className={`h-full ${flow.isUnusual ? 'bg-yellow-500' : 'bg-blue-500'}`} style={{width: `${Math.min((flow.volume / meta.volumeThreshold) * 100, 100)}%`}}></div></div></div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {meta && !loading && (
+        <div className="px-4 py-2 border-t border-gray-700 bg-gray-800">
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><div className="text-gray-500">Avg Volume</div><div className="text-white font-medium">{meta.avgVolume.toLocaleString()}</div></div>
+            <div><div className="text-gray-500">Threshold</div><div className="text-white font-medium">{meta.volumeThreshold.toLocaleString()}</div></div>
+            <div><div className="text-gray-500">Expiry</div><div className="text-white font-medium">{new Date(meta.expiry).toLocaleDateString()}</div></div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -31,7 +31,8 @@ export default function Watchlist({ id, config }: WidgetProps) {
     }
 
     fetchQuotes()
-    const interval = setInterval(fetchQuotes, config.refreshInterval || 5000)
+    // Update every 3 seconds for real-time feel
+    const interval = setInterval(fetchQuotes, config.refreshInterval || 3000)
     return () => clearInterval(interval)
   }, [symbols.join(','), config.refreshInterval])
 

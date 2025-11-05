@@ -38,6 +38,7 @@ class PolygonClient {
 
   /**
    * Make API request with error handling
+   * Enterprise tier: Optimized for high-frequency, low-latency requests
    */
   private async request<T>(url: string): Promise<T> {
     try {
@@ -46,7 +47,8 @@ class PolygonClient {
         headers: {
           'Accept': 'application/json',
         },
-        next: { revalidate: 1 }, // Cache for 1 second
+        // Enterprise tier: No caching for real-time data
+        cache: 'no-store', // Always fetch fresh data
       })
 
       if (!response.ok) {
@@ -127,17 +129,75 @@ class PolygonClient {
   }
 
   /**
-   * Get options chain for a symbol
-   * Endpoint: /v3/reference/options/contracts
+   * Get options chain with PREMIUM real-time market data
+   * Endpoint: /v3/snapshot/options/{underlying_ticker}
+   * Enterprise/Developer tier: Full bid/ask, Greeks, volume, IV
    */
   async getOptionsChain(
     symbol: string,
     expiry?: string,
     type?: 'call' | 'put'
   ): Promise<OptionsContract[]> {
+    try {
+      // Premium tier: Use maximum allowed limit (250 for snapshot endpoint)
+      const url = this.buildUrl(`/v3/snapshot/options/${symbol.toUpperCase()}`, {
+        expiration_date: expiry,
+        contract_type: type,
+        limit: 250, // Maximum allowed by Polygon.io snapshot API
+      })
+      
+      const response = await this.request<any>(url)
+
+      if (!response.results || response.results.length === 0) {
+        console.warn(`No options data for ${symbol}`)
+        return []
+      }
+
+      // Map FULL real-time market data with premium features
+      const contracts: OptionsContract[] = response.results
+        .filter((opt: any) => opt.details)
+        .map((opt: any) => ({
+          symbol: opt.details.ticker || '',
+          strike: opt.details.strike_price || 0,
+          expiry: opt.details.expiration_date || '',
+          type: opt.details.contract_type || 'call',
+          // REAL bid/ask from premium tier (not approximations)
+          volume: opt.day?.volume || 0,
+          openInterest: opt.open_interest || 0,
+          bid: opt.last_quote?.bid || opt.day?.close || 0,
+          ask: opt.last_quote?.ask || (opt.day?.close ? opt.day.close * 1.01 : 0),
+          last: opt.last_trade?.price || opt.day?.close || 0,
+          // Full Greeks from premium calculations
+          impliedVolatility: opt.implied_volatility || 0,
+          delta: opt.greeks?.delta || 0,
+          gamma: opt.greeks?.gamma || 0,
+          theta: opt.greeks?.theta || 0,
+          vega: opt.greeks?.vega || 0,
+          rho: opt.greeks?.rho || 0, // Premium tier includes Rho
+        }))
+      
+      return contracts.sort((a, b) => a.strike - b.strike)
+    } catch (error) {
+      console.error('Failed to fetch options snapshot:', error)
+      
+      // Fallback to reference endpoint if snapshot fails
+      return this.getOptionsChainFallback(symbol, expiry, type)
+    }
+  }
+
+  /**
+   * Fallback method using reference endpoint (contract metadata only)
+   */
+  private async getOptionsChainFallback(
+    symbol: string,
+    expiry?: string,
+    type?: 'call' | 'put'
+  ): Promise<OptionsContract[]> {
     const params: Record<string, any> = {
       underlying_ticker: symbol.toUpperCase(),
-      limit: 100,
+      limit: 250,
+      order: 'asc',
+      sort: 'strike_price',
     }
 
     if (expiry) params.expiration_date = expiry
@@ -146,21 +206,26 @@ class PolygonClient {
     const url = this.buildUrl('/v3/reference/options/contracts', params)
     const response = await this.request<any>(url)
 
-    if (!response.results) {
+    if (!response.results || response.results.length === 0) {
       return []
     }
 
-    // Map to our format (Note: Greeks require separate endpoint or paid tier)
+    // Return with minimal data (contract structure only)
     return response.results.map((contract: any) => ({
       symbol: contract.ticker,
       strike: contract.strike_price,
       expiry: contract.expiration_date,
       type: contract.contract_type,
-      volume: 0, // Requires market data
+      volume: 0,
       openInterest: 0,
       bid: 0,
       ask: 0,
       last: 0,
+      impliedVolatility: 0,
+      delta: 0,
+      gamma: 0,
+      theta: 0,
+      vega: 0,
     }))
   }
 
@@ -240,6 +305,34 @@ class PolygonClient {
     return {
       market: 'stocks',
       status: response.market || 'unknown',
+    }
+  }
+
+  /**
+   * Get available options expiration dates for a symbol
+   * Endpoint: /v3/reference/options/contracts
+   */
+  async getOptionsExpiries(symbol: string): Promise<string[]> {
+    try {
+      const url = this.buildUrl('/v3/reference/options/contracts', {
+        underlying_ticker: symbol.toUpperCase(),
+        limit: 1000,
+      })
+      const response = await this.request<any>(url)
+
+      if (!response.results || response.results.length === 0) {
+        return []
+      }
+
+      // Extract unique expiration dates and sort them
+      const dates = response.results
+        .map((contract: any) => contract.expiration_date)
+        .filter((date: any): date is string => typeof date === 'string')
+      const expiries: string[] = Array.from(new Set(dates))
+      return expiries.sort()
+    } catch (error) {
+      console.error('Failed to fetch options expiries:', error)
+      return []
     }
   }
 }

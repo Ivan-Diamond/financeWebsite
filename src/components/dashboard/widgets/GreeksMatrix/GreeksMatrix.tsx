@@ -6,6 +6,7 @@ import { useDashboardStore } from '@/stores/dashboardStore'
 
 export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps) {
   const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
   const [chain, setChain] = useState<any[]>([])
   const [summary, setSummary] = useState({ totalCallDelta: 0, totalPutDelta: 0, putCallRatio: 0 })
   
@@ -18,11 +19,18 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
 
   useEffect(() => {
     fetchData()
+    // Refresh every 30 seconds (slower, less disruptive)
+    const interval = setInterval(() => fetchData(true), 30000)
+    return () => clearInterval(interval)
   }, [symbol, activeSymbol])
 
-  const fetchData = async () => {
+  const fetchData = async (isUpdate = false) => {
     try {
-      setLoading(true)
+      if (isUpdate) {
+        setUpdating(true)  // Show small indicator, don't block UI
+      } else {
+        setLoading(true)   // First load, show full loading
+      }
       const response = await fetch(`/api/options/snapshot/${symbol}`)
       const data = await response.json()
       
@@ -37,6 +45,7 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
       console.error('Failed to fetch Greeks data:', error)
     } finally {
       setLoading(false)
+      setUpdating(false)
     }
   }
 
@@ -72,8 +81,15 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-auto">
-        {loading ? (
+      <div className="flex-1 p-4 overflow-auto relative">
+        {/* Small updating indicator */}
+        {updating && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          </div>
+        )}
+        
+        {loading && !summary.totalCallDelta ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
@@ -101,25 +117,22 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
               </div>
             </div>
 
-            {/* Heatmap Placeholder */}
-            <div className="bg-gray-700 rounded-lg p-6 text-center">
-              <div className="text-4xl mb-3">
-                {greek === 'delta' ? 'Δ' : greek === 'gamma' ? 'Γ' : greek === 'theta' ? 'Θ' : 'ν'}
+            {/* Greek Explanation */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="text-lg font-semibold text-white mb-2">
+                {greek === 'delta' ? 'Delta (Δ)' : greek === 'gamma' ? 'Gamma (Γ)' : greek === 'theta' ? 'Theta (Θ)' : 'Vega (ν)'}
               </div>
-              <div className="text-sm text-gray-400">
-                {greek.charAt(0).toUpperCase() + greek.slice(1)} Matrix Visualization
+              <div className="text-sm text-gray-300">
+                {greek === 'delta' && 'Rate of change in option price per $1 move in stock. Calls: 0 to 1, Puts: -1 to 0'}
+                {greek === 'gamma' && 'Rate of change in Delta. Higher Gamma = faster Delta changes'}
+                {greek === 'theta' && 'Time decay per day. How much value the option loses each day'}
+                {greek === 'vega' && 'Sensitivity to volatility changes. How much price changes per 1% IV move'}
               </div>
-              <div className="text-xs text-gray-500 mt-2">
-                Visual heatmap coming soon
+              <div className="mt-3 text-xs text-gray-400">
+                💡 Tip: Options near the money (ATM) have the highest {greek}
               </div>
-              <div className="mt-4 grid grid-cols-10 gap-1">
-                {Array.from({ length: 50 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-8 rounded ${getGreekColor(Math.random())}`}
-                    style={{ opacity: 0.3 + Math.random() * 0.7 }}
-                  />
-                ))}
+              <div className="mt-3 text-xs text-blue-400">
+                ⏱️ Auto-updates every 30 seconds
               </div>
             </div>
           </div>

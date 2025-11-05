@@ -32,6 +32,9 @@ export default function OptionsChain({ id, config }: WidgetProps) {
   useEffect(() => {
     if (selectedExpiry) {
       fetchChain()
+      // Auto-refresh every 15 seconds (less aggressive, smoother experience)
+      const interval = setInterval(fetchChain, 15000)
+      return () => clearInterval(interval)
     }
   }, [symbol, activeSymbol, selectedExpiry])
 

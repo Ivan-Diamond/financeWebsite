@@ -15,12 +15,14 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
   const [loading, setLoading] = useState(true)
+  const [livePrice, setLivePrice] = useState<number | null>(null)
 
   useEffect(() => {
     if (!chartContainerRef.current) return
 
-    // Create chart
+    // Create chart with v4 API
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
@@ -42,8 +44,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
       },
     })
 
-    // Use the correct API for lightweight-charts v5
-    const candlestickSeries = chart.addSeries('Candlestick' as any, {
+    // Add candlestick series (v4 API)
+    const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: false,
@@ -56,6 +58,9 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
 
     // Fetch historical data
     fetchHistoricalData()
+    
+    // Connect to WebSocket for real-time price updates
+    connectWebSocket()
 
     // Handle resize
     const handleResize = () => {
@@ -71,9 +76,55 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
 
     return () => {
       window.removeEventListener('resize', handleResize)
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
       chart.remove()
     }
   }, [symbol, activeSymbol, interval])
+  
+  const connectWebSocket = () => {
+    // Close existing connection
+    if (wsRef.current) {
+      wsRef.current.close()
+    }
+
+    try {
+      // Connect to our WebSocket server
+      const ws = new WebSocket(`ws://${window.location.hostname}:${window.location.port || 80}/api/socket`)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        console.log('🔌 LiveChart WebSocket connected')
+        // Subscribe to ticker
+        ws.send(JSON.stringify({
+          action: 'subscribe',
+          symbols: [symbol]
+        }))
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'quote' && data.data?.symbol === symbol) {
+            setLivePrice(data.data.price)
+          }
+        } catch (err) {
+          console.error('WebSocket message error:', err)
+        }
+      }
+
+      ws.onerror = (error) => {
+        console.error('LiveChart WebSocket error:', error)
+      }
+
+      ws.onclose = () => {
+        console.log('LiveChart WebSocket disconnected')
+      }
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error)
+    }
+  }
 
   const fetchHistoricalData = async () => {
     try {
@@ -114,6 +165,12 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
         <div className="flex items-center space-x-3">
           <div className="text-sm font-semibold text-white">{symbol}</div>
+          {livePrice && (
+            <div className="flex items-center space-x-1">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+              <div className="text-sm font-mono text-green-400">${livePrice.toFixed(2)}</div>
+            </div>
+          )}
           <div className="text-xs text-gray-400">{interval}</div>
         </div>
         <div className="flex gap-1">
