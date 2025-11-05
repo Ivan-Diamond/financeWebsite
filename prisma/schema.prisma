@@ -1,0 +1,106 @@
+// Finance Dashboard - Prisma Schema
+// Username-based authentication with customizable dashboard layouts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  layouts       Layout[]
+  settings      UserSettings?
+  
+  @@index([username])
+}
+
+model UserSettings {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  theme         String    @default("dark") // "dark" | "light"
+  defaultLayoutId String?
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// ============================================
+// DASHBOARD LAYOUTS
+// ============================================
+
+model Layout {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String    @default("My Dashboard")
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // React Grid Layout configuration
+  gridConfig    Json      // { cols: 12, rowHeight: 60, compactType: "vertical" }
+  
+  widgets       Widget[]
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+model Widget {
+  id            String    @id @default(cuid())
+  layoutId      String
+  type          String    // "ticker" | "chart" | "options_table" | "watchlist" | "news"
+  
+  // Grid positioning (React Grid Layout format)
+  gridX         Int
+  gridY         Int
+  gridW         Int       // width in grid units
+  gridH         Int       // height in grid units
+  
+  // Widget-specific configuration
+  config        Json      // { symbol: "TSLA", interval: "1m", chartType: "line", ... }
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  layout        Layout    @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  
+  @@index([layoutId])
+  @@index([type])
+}
+
+// ============================================
+// MARKET DATA CACHE (Optional - reduces API calls)
+// ============================================
+
+model MarketSnapshot {
+  id            String    @id @default(cuid())
+  symbol        String    @unique
+  lastPrice     Float
+  change        Float
+  changePercent Float
+  volume        BigInt
+  high          Float?
+  low           Float?
+  open          Float?
+  previousClose Float?
+  timestamp     DateTime  @default(now())
+  
+  @@index([symbol])
+  @@index([timestamp])
+}
