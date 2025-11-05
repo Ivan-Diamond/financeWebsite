@@ -42,7 +42,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
       },
     })
 
-    const candlestickSeries = (chart as any).addCandlestickSeries({
+    // Use the correct API for lightweight-charts v5
+    const candlestickSeries = chart.addSeries('Candlestick' as any, {
       upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: false,
@@ -51,7 +52,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
     })
 
     chartRef.current = chart
-    seriesRef.current = candlestickSeries
+    seriesRef.current = candlestickSeries as any
 
     // Fetch historical data
     fetchHistoricalData()
