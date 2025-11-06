@@ -273,17 +273,43 @@ export function useWebSocket() {
     const unsubMessage = client.onMessage((message) => {
       if (message.type === 'quote') {
         const quoteMsg = message as QuoteMessage
-        marketStore.setQuote(quoteMsg.data.symbol, quoteMsg.data)
+        const data = quoteMsg.data
+        
+        // Store quote
+        marketStore.setQuote(data.symbol, data)
+        
+        // Also create/update candle for chart
+        marketStore.addCandle(data.symbol, {
+          time: data.timestamp,
+          open: data.price, // We'll use price as all OHLC for now
+          high: data.price,
+          low: data.price,
+          close: data.price,
+          volume: data.volume || 0,
+        })
       } else if (message.type === 'option_update') {
         // Store option updates in market store
         const optionMsg = message as any
-        marketStore.setQuote(optionMsg.data.contractId, {
-          symbol: optionMsg.data.contractId,
-          price: optionMsg.data.price,
-          change: optionMsg.data.change,
-          changePercent: optionMsg.data.changePercent,
-          volume: optionMsg.data.volume,
-          timestamp: optionMsg.data.timestamp,
+        const data = optionMsg.data
+        
+        // Store quote
+        marketStore.setQuote(data.contractId, {
+          symbol: data.contractId,
+          price: data.price,
+          change: data.change,
+          changePercent: data.changePercent,
+          volume: data.volume,
+          timestamp: data.timestamp,
+        })
+        
+        // Also create/update candle
+        marketStore.addCandle(data.contractId, {
+          time: data.timestamp,
+          open: data.open || data.price,
+          high: data.high || data.price,
+          low: data.low || data.price,
+          close: data.price,
+          volume: data.volume || 0,
         })
       }
     })

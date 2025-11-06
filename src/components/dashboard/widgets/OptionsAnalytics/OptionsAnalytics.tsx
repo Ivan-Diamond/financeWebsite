@@ -13,14 +13,14 @@ import LiveChartSection from './LiveChartSection'
 
 export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
-  const { subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
+  const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
   const marketStore = useMarketStore()
+  const chartCandles = marketStore.candles.get(activeSymbol) || []
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
   const [selectedExpiry, setSelectedExpiry] = useState<string | undefined>(config.expiry)
   const [optionsData, setOptionsData] = useState<OptionsChainData | null>(null)
-  const [chartData, setChartData] = useState<any[]>([])
   const [miniGraphData, setMiniGraphData] = useState<Map<string, MiniGraphData>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -149,27 +149,18 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
   }, [activeSymbol, selectedExpiry])
 
-  // Fetch chart data for the underlying
-  const fetchChartData = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `/api/market/historical/${activeSymbol}?timespan=${chartInterval}&limit=100`
-      )
+  // Subscribe to underlying symbol for chart
+  useEffect(() => {
+    if (activeSymbol && isConnected) {
+      console.log(`📈 Subscribing to ${activeSymbol} for chart`)
+      subscribe([activeSymbol])
       
-      if (!response.ok) throw new Error('Failed to fetch chart data')
-      
-      const result = await response.json()
-      
-      if (result.success && result.data) {
-        setChartData(result.data)
-      } else {
-        setChartData([])
+      return () => {
+        console.log(`📈 Unsubscribing from ${activeSymbol}`)
+        unsubscribe([activeSymbol])
       }
-    } catch (err) {
-      console.error('Error fetching chart data:', err)
-      setChartData([])
     }
-  }, [activeSymbol, chartInterval])
+  }, [activeSymbol, isConnected, subscribe, unsubscribe])
 
   // Generate simulated mini-graph data
   // In production, this would fetch real intraday data for each contract
@@ -245,9 +236,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   useEffect(() => {
     if (selectedExpiry) {
       fetchOptionsChain()
-      fetchChartData()
     }
-  }, [selectedExpiry, fetchOptionsChain, fetchChartData])
+  }, [selectedExpiry, fetchOptionsChain])
 
   // Effect: Generate mini-graph data when options data changes
   useEffect(() => {
@@ -410,7 +400,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
         <div className="flex flex-col overflow-hidden">
           <LiveChartSection
             symbol={activeSymbol}
-            data={chartData}
+            data={chartCandles}
             height={0}
           />
         </div>
