@@ -16,6 +16,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
   const chartCandles = useMarketStore(state => state.candles.get(activeSymbol) || [])
   const setCandles = useMarketStore(state => state.setCandles)
+  const quotes = useMarketStore(state => state.quotes)
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
@@ -311,7 +312,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     
     // Check for updates from market store
     allContracts.forEach(contract => {
-      const quote = marketStore.quotes.get(contract.contractId)
+      const quote = quotes.get(contract.contractId)
       
       if (quote && quote.price) {
         // Update mini-graph data with new price point
@@ -347,7 +348,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
         })
       }
     })
-  }, [marketStore.quotes, optionsData])
+  }, [quotes, optionsData])
 
   // Handle expiry change
   const handleExpiryChange = (expiry: string) => {
