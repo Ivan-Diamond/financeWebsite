@@ -237,20 +237,36 @@ class PolygonClient {
     symbol: string,
     from: string,
     to: string,
-    timespan: '1' | '5' | '15' | '60' | '240' | 'day' = '60',
+    timespan: '1' | '5' | '15' | '60' | '240' | 'day' | 'minute' | 'hour' | 'week' | 'month' | 'quarter' | 'year' = '60',
     multiplier: number = 1
   ): Promise<CandlestickData[]> {
+    // Map common interval values to API timespan values
     const timespanMap: Record<string, string> = {
       '1': 'minute',
       '5': 'minute',
       '15': 'minute',
       '60': 'minute',
       '240': 'minute',
+      '1m': 'minute',
+      '5m': 'minute',
+      '15m': 'minute',
+      '1h': 'hour',
+      '4h': 'hour',
+      '1d': 'day',
       'day': 'day',
+      'minute': 'minute',
+      'hour': 'hour',
+      'week': 'week',
+      'month': 'month',
+      'quarter': 'quarter',
+      'year': 'year',
     }
 
+    // Use mapped value or pass through if already valid
+    const apiTimespan = timespanMap[timespan] || timespan
+
     const url = this.buildUrl(
-      `/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespanMap[timespan]}/${from}/${to}`,
+      `/v2/aggs/ticker/${symbol}/range/${multiplier}/${apiTimespan}/${from}/${to}`,
       { adjusted: 'true', sort: 'asc' }
     )
 
