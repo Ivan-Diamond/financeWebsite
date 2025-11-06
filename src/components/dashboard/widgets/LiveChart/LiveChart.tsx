@@ -23,7 +23,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   // Get live data from market store with proper subscription
   const liveQuote = useMarketStore(state => state.quotes.get(symbol))
   const candleData = useMarketStore(state => state.candles.get(symbol) || [])
-  const marketStore = useMarketStore()
+  // Get setCandles action without subscribing to data changes
+  const setCandles = useMarketStore(state => state.setCandles)
 
   useEffect(() => {
     if (!chartContainerRef.current) return
@@ -107,7 +108,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
               close: bar.close,
               volume: bar.volume || 0,
             }))
-            marketStore.setCandles(symbol, candles)
+            setCandles(symbol, candles)
             console.log(`📈 LiveChart loaded ${candles.length} initial candles for ${symbol}`)
           }
         }
@@ -209,7 +210,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
             close: bar.close,
             volume: bar.volume || 0,
           }))
-          marketStore.setCandles(symbol, candles)
+          setCandles(symbol, candles)
           console.log(`📈 Loaded ${candles.length} candles for ${symbol} at ${newInterval} interval`)
         }
       }
