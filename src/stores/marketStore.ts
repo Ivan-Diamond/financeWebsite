@@ -43,7 +43,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   
   addCandle: (symbol, candle) => set((state) => {
     const newCandles = new Map(state.candles)
-    const existingCandles = newCandles.get(symbol) || []
+    // Create a NEW array (don't mutate existing)
+    const existingCandles = [...(newCandles.get(symbol) || [])]
     
     // Check if we should update the last candle or add new one
     if (existingCandles.length > 0) {

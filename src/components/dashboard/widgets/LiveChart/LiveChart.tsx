@@ -11,7 +11,6 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   // Use selector for proper reactivity
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
   const { subscribe, unsubscribe, isConnected } = useWebSocket()
-  const marketStore = useMarketStore()
   
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
@@ -21,9 +20,10 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const [loading, setLoading] = useState(false)
   
-  // Get live data from market store
-  const liveQuote = marketStore.quotes.get(symbol)
-  const candleData = marketStore.candles.get(symbol) || []
+  // Get live data from market store with proper subscription
+  const liveQuote = useMarketStore(state => state.quotes.get(symbol))
+  const candleData = useMarketStore(state => state.candles.get(symbol) || [])
+  const marketStore = useMarketStore()
 
   useEffect(() => {
     if (!chartContainerRef.current) return
