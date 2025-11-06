@@ -80,18 +80,56 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
     }
   }, [symbol, activeSymbol, interval])
   
-  // Subscribe to symbol via centralized WebSocket
+  // Load initial historical data and subscribe to real-time updates
   useEffect(() => {
-    if (symbol && isConnected) {
-      console.log(`📈 LiveChart subscribing to ${symbol}`)
-      subscribe([symbol])
-      
-      return () => {
-        console.log(`📈 LiveChart unsubscribing from ${symbol}`)
-        unsubscribe([symbol])
+    const loadInitialData = async () => {
+      setLoading(true)
+      try {
+        const endDate = new Date()
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - 7) // Last 7 days
+        
+        const response = await fetch(
+          `/api/market/historical/${symbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=1`
+        )
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            // Convert to candle format
+            const candles = result.data.map((bar: any) => ({
+              time: bar.time,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: bar.volume || 0,
+            }))
+            marketStore.setCandles(symbol, candles)
+            console.log(`📈 LiveChart loaded ${candles.length} initial candles for ${symbol}`)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error)
+      } finally {
+        setLoading(false)
       }
     }
-  }, [symbol, isConnected, subscribe, unsubscribe])
+
+    if (symbol) {
+      loadInitialData()
+      
+      if (isConnected) {
+        console.log(`📈 LiveChart subscribing to ${symbol}`)
+        subscribe([symbol])
+        
+        return () => {
+          console.log(`📈 LiveChart unsubscribing from ${symbol}`)
+          unsubscribe([symbol])
+        }
+      }
+    }
+  }, [symbol, isConnected, subscribe, unsubscribe, marketStore])
   
   // Update chart when candle data changes
   useEffect(() => {

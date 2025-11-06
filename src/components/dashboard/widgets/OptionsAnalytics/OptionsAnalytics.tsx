@@ -149,18 +149,53 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
   }, [activeSymbol, selectedExpiry])
 
-  // Subscribe to underlying symbol for chart
+  // Load initial chart data and subscribe to updates
   useEffect(() => {
-    if (activeSymbol && isConnected) {
-      console.log(`📈 Subscribing to ${activeSymbol} for chart`)
-      subscribe([activeSymbol])
-      
-      return () => {
-        console.log(`📈 Unsubscribing from ${activeSymbol}`)
-        unsubscribe([activeSymbol])
+    const loadInitialChartData = async () => {
+      try {
+        // Fetch last hour of data
+        const endDate = new Date()
+        const startDate = new Date(endDate.getTime() - 60 * 60 * 1000) // 1 hour ago
+        
+        const response = await fetch(
+          `/api/market/historical/${activeSymbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=1`
+        )
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            // Convert to candle format and store
+            const candles = result.data.map((bar: any) => ({
+              time: bar.time,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: bar.volume || 0,
+            }))
+            marketStore.setCandles(activeSymbol, candles)
+            console.log(`📈 Loaded ${candles.length} initial candles for ${activeSymbol}`)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading initial chart data:', error)
       }
     }
-  }, [activeSymbol, isConnected, subscribe, unsubscribe])
+
+    if (activeSymbol) {
+      loadInitialChartData()
+      
+      if (isConnected) {
+        console.log(`📈 Subscribing to ${activeSymbol} for chart`)
+        subscribe([activeSymbol])
+        
+        return () => {
+          console.log(`📈 Unsubscribing from ${activeSymbol}`)
+          unsubscribe([activeSymbol])
+        }
+      }
+    }
+  }, [activeSymbol, isConnected, subscribe, unsubscribe, marketStore])
 
   // Generate simulated mini-graph data
   // In production, this would fetch real intraday data for each contract
