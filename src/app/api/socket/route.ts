@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { WebSocketServer, WebSocket } from 'ws'
 import { wsManager } from '@/lib/socket/server'
-import { ClientMessage, SubscribeMessage, UnsubscribeMessage } from '@/lib/socket/types'
+import { ClientMessage, SubscribeMessage, UnsubscribeMessage, SubscribeOptionsMessage, UnsubscribeOptionsMessage } from '@/lib/socket/types'
 import { randomBytes } from 'crypto'
 
 // WebSocket server instance (singleton)
@@ -114,6 +114,24 @@ function handleClientMessage(clientId: string, message: ClientMessage, ws: WebSo
       const unsubscribeMsg = message as UnsubscribeMessage
       if (unsubscribeMsg.symbols && unsubscribeMsg.symbols.length > 0) {
         wsManager.unsubscribe(clientId, unsubscribeMsg.symbols)
+      }
+      break
+    }
+
+    case 'subscribe_options': {
+      const subscribeOptionsMsg = message as SubscribeOptionsMessage
+      if (subscribeOptionsMsg.contractIds && subscribeOptionsMsg.contractIds.length > 0) {
+        // Limit to 50 contracts per client
+        const contractIds = subscribeOptionsMsg.contractIds.slice(0, 50)
+        wsManager.subscribeToOptions(clientId, contractIds)
+      }
+      break
+    }
+
+    case 'unsubscribe_options': {
+      const unsubscribeOptionsMsg = message as UnsubscribeOptionsMessage
+      if (unsubscribeOptionsMsg.contractIds && unsubscribeOptionsMsg.contractIds.length > 0) {
+        wsManager.unsubscribeFromOptionsClient(clientId, unsubscribeOptionsMsg.contractIds)
       }
       break
     }

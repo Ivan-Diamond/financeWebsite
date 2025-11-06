@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { WidgetProps } from '../../types'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useWebSocket } from '@/lib/socket/client'
+import { useMarketStore } from '@/stores/marketStore'
 import { OptionsChainData, OptionContract, MiniGraphData, IntradayDataPoint } from './types'
 import ExpirySelector from './ExpirySelector'
 import StrikeOverview from './StrikeOverview'
@@ -11,6 +13,8 @@ import LiveChartSection from './LiveChartSection'
 
 export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
+  const { subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
+  const marketStore = useMarketStore()
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
@@ -253,17 +257,69 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
   }, [optionsData, showMiniGraphs, generateMiniGraphData])
 
-  // Effect: Auto-refresh every 30 seconds
+  // Effect: Subscribe to real-time option updates via WebSocket
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (selectedExpiry) {
-        fetchOptionsChain()
-        fetchChartData()
-      }
-    }, 30000)
+    if (!optionsData || !isConnected) return
 
-    return () => clearInterval(interval)
-  }, [selectedExpiry, fetchOptionsChain, fetchChartData])
+    const allContracts = [...optionsData.calls, ...optionsData.puts]
+    const contractIds = allContracts.map(c => c.contractId)
+
+    if (contractIds.length > 0) {
+      console.log(`📡 Subscribing to ${contractIds.length} option contracts`)
+      subscribeToOptions(contractIds)
+
+      return () => {
+        console.log(`📡 Unsubscribing from ${contractIds.length} option contracts`)
+        unsubscribeFromOptions(contractIds)
+      }
+    }
+  }, [optionsData, isConnected, subscribeToOptions, unsubscribeFromOptions])
+
+  // Effect: Update mini-graphs with real-time data from WebSocket
+  useEffect(() => {
+    if (!optionsData) return
+
+    const allContracts = [...optionsData.calls, ...optionsData.puts]
+    
+    // Check for updates from market store
+    allContracts.forEach(contract => {
+      const quote = marketStore.quotes.get(contract.contractId)
+      
+      if (quote && quote.price) {
+        // Update mini-graph data with new price point
+        setMiniGraphData(prev => {
+          const existing = prev.get(contract.contractId)
+          if (!existing) return prev
+
+          const newData = [...existing.data]
+          const now = Date.now()
+          
+          // Add new data point
+          newData.push({ time: now, value: quote.price })
+          
+          // Keep last 30 points
+          if (newData.length > 30) {
+            newData.shift()
+          }
+
+          const firstValue = newData[0].value
+          const lastValue = newData[newData.length - 1].value
+          const change = lastValue - firstValue
+          const changePercent = (change / firstValue) * 100
+
+          const updated = new Map(prev)
+          updated.set(contract.contractId, {
+            contractId: contract.contractId,
+            data: newData,
+            change,
+            changePercent,
+          })
+          
+          return updated
+        })
+      }
+    })
+  }, [marketStore.quotes, optionsData])
 
   // Handle expiry change
   const handleExpiryChange = (expiry: string) => {
@@ -309,7 +365,10 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
       {/* Header with Expiry Selector */}
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-700">
         <div>
-          <h3 className="text-sm font-bold text-gray-100">Options Analytics - {activeSymbol}</h3>
+          <h3 className="text-sm font-bold text-gray-100">
+            Options Analytics - {activeSymbol}
+            {isConnected && <span className="ml-2 text-green-400 text-xs">● LIVE</span>}
+          </h3>
           {optionsData && (
             <p className="text-xs text-gray-500">
               Underlying: ${optionsData.underlyingPrice.toFixed(2)}

@@ -2,13 +2,14 @@
  * WebSocket message types for client-server communication
  */
 
-export type ClientMessageType = 'subscribe' | 'unsubscribe' | 'ping'
-export type ServerMessageType = 'quote' | 'trade' | 'error' | 'connected' | 'subscribed' | 'unsubscribed' | 'pong'
+export type ClientMessageType = 'subscribe' | 'unsubscribe' | 'subscribe_options' | 'unsubscribe_options' | 'ping'
+export type ServerMessageType = 'quote' | 'trade' | 'option_update' | 'error' | 'connected' | 'subscribed' | 'subscribed_options' | 'unsubscribed' | 'pong'
 
 // Client → Server messages
 export interface ClientMessage {
   type: ClientMessageType
   symbols?: string[]
+  contractIds?: string[]
   timestamp?: number
 }
 
@@ -20,6 +21,16 @@ export interface SubscribeMessage extends ClientMessage {
 export interface UnsubscribeMessage extends ClientMessage {
   type: 'unsubscribe'
   symbols: string[]
+}
+
+export interface SubscribeOptionsMessage extends ClientMessage {
+  type: 'subscribe_options'
+  contractIds: string[]
+}
+
+export interface UnsubscribeOptionsMessage extends ClientMessage {
+  type: 'unsubscribe_options'
+  contractIds: string[]
 }
 
 // Server → Client messages
@@ -48,6 +59,21 @@ export interface TradeMessage extends ServerMessage {
     symbol: string
     price: number
     size: number
+    timestamp: number
+  }
+}
+
+export interface OptionUpdateMessage extends ServerMessage {
+  type: 'option_update'
+  data: {
+    contractId: string
+    price: number
+    open: number
+    high: number
+    low: number
+    change: number
+    changePercent: number
+    volume: number
     timestamp: number
   }
 }
@@ -105,4 +131,17 @@ export interface PolygonQuoteMessage {
   bs: number // Bid size
   as: number // Ask size
   t: number // Timestamp
+}
+
+export interface PolygonOptionsAggregateMessage {
+  ev: 'A' // Aggregate
+  sym: string // Contract ID (e.g., O:SPY251219C00650000)
+  o: number // Open
+  h: number // High
+  l: number // Low
+  c: number // Close (current price)
+  v: number // Volume
+  vw?: number // Volume weighted average
+  s: number // Start timestamp
+  e?: number // End timestamp
 }

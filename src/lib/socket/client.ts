@@ -112,6 +112,41 @@ class WebSocketClient {
   }
 
   /**
+   * Subscribe to option contracts
+   */
+  subscribeToOptions(contractIds: string[]) {
+    if (!this.isConnected()) {
+      console.warn('Cannot subscribe to options: not connected')
+      return
+    }
+
+    const message: ClientMessage = {
+      type: 'subscribe_options',
+      contractIds: contractIds.map(id => id.toUpperCase()),
+      timestamp: Date.now(),
+    }
+
+    this.send(message)
+  }
+
+  /**
+   * Unsubscribe from option contracts
+   */
+  unsubscribeFromOptions(contractIds: string[]) {
+    if (!this.isConnected()) {
+      return
+    }
+
+    const message: ClientMessage = {
+      type: 'unsubscribe_options',
+      contractIds: contractIds.map(id => id.toUpperCase()),
+      timestamp: Date.now(),
+    }
+
+    this.send(message)
+  }
+
+  /**
    * Send message to server
    */
   private send(message: ClientMessage) {
@@ -239,6 +274,17 @@ export function useWebSocket() {
       if (message.type === 'quote') {
         const quoteMsg = message as QuoteMessage
         marketStore.setQuote(quoteMsg.data.symbol, quoteMsg.data)
+      } else if (message.type === 'option_update') {
+        // Store option updates in market store
+        const optionMsg = message as any
+        marketStore.setQuote(optionMsg.data.contractId, {
+          symbol: optionMsg.data.contractId,
+          price: optionMsg.data.price,
+          change: optionMsg.data.change,
+          changePercent: optionMsg.data.changePercent,
+          volume: optionMsg.data.volume,
+          timestamp: optionMsg.data.timestamp,
+        })
       }
     })
 
@@ -263,10 +309,28 @@ export function useWebSocket() {
     }
   }, [marketStore])
 
+  const subscribeToOptions = useCallback((contractIds: string[]) => {
+    if (clientRef.current) {
+      clientRef.current.subscribeToOptions(contractIds)
+      // Store as subscribed
+      contractIds.forEach(id => marketStore.subscribe([id]))
+    }
+  }, [marketStore])
+
+  const unsubscribeFromOptions = useCallback((contractIds: string[]) => {
+    if (clientRef.current) {
+      clientRef.current.unsubscribeFromOptions(contractIds)
+      // Remove from subscribed
+      contractIds.forEach(id => marketStore.unsubscribe([id]))
+    }
+  }, [marketStore])
+
   return {
     isConnected,
     subscribe,
     unsubscribe,
+    subscribeToOptions,
+    unsubscribeFromOptions,
   }
 }
 
