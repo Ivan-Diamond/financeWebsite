@@ -7,8 +7,8 @@ import { useDashboardStore } from '@/stores/dashboardStore'
 export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps) {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
-  const [chain, setChain] = useState<any[]>([])
-  const [summary, setSummary] = useState({ totalCallDelta: 0, totalPutDelta: 0, putCallRatio: 0 })
+  const [optionsData, setOptionsData] = useState<any[]>([])
+  const [summary, setSummary] = useState({ totalCallDelta: 0, totalPutDelta: 0, putCallRatio: 0, stockPrice: 0 })
   
   // Use selector for proper reactivity  
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
@@ -27,18 +27,28 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
   const fetchData = async (isUpdate = false) => {
     try {
       if (isUpdate) {
-        setUpdating(true)  // Show small indicator, don't block UI
+        setUpdating(true)
       } else {
-        setLoading(true)   // First load, show full loading
+        setLoading(true)
       }
-      const response = await fetch(`/api/options/snapshot/${symbol}`)
-      const data = await response.json()
       
-      if (data.success) {
+      // Fetch actual options chain with Greeks
+      const chainResponse = await fetch(`/api/options/chain/${symbol}?strikeRange=5`)
+      const chainData = await chainResponse.json()
+      
+      if (chainData.success && chainData.data.chain) {
+        const options = chainData.data.chain
+        setOptionsData(options)
+        
+        // Calculate summary
+        const callVolume = options.filter((o: any) => o.type === 'call').reduce((sum: number, o: any) => sum + (o.volume || 0), 0)
+        const putVolume = options.filter((o: any) => o.type === 'put').reduce((sum: number, o: any) => sum + (o.volume || 0), 0)
+        
         setSummary({
-          totalCallDelta: data.data.totalCallVolume,
-          totalPutDelta: data.data.totalPutVolume,
-          putCallRatio: data.data.putCallRatio,
+          totalCallDelta: callVolume,
+          totalPutDelta: putVolume,
+          putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
+          stockPrice: chainData.data.stockPrice || 0,
         })
       }
     } catch (error) {
@@ -117,22 +127,52 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
               </div>
             </div>
 
-            {/* Greek Explanation */}
+            {/* Greek Values Table */}
             <div className="bg-gray-700 rounded-lg p-4">
-              <div className="text-lg font-semibold text-white mb-2">
-                {greek === 'delta' ? 'Delta (Δ)' : greek === 'gamma' ? 'Gamma (Γ)' : greek === 'theta' ? 'Theta (Θ)' : 'Vega (ν)'}
+              <div className="text-sm font-semibold text-white mb-3 flex items-center justify-between">
+                <span>{greek === 'delta' ? 'Delta (Δ)' : greek === 'gamma' ? 'Gamma (Γ)' : greek === 'theta' ? 'Theta (Θ)' : 'Vega (ν)'} by Strike</span>
+                <span className="text-xs text-gray-400">ATM: ${summary.stockPrice.toFixed(0)}</span>
               </div>
-              <div className="text-sm text-gray-300">
-                {greek === 'delta' && 'Rate of change in option price per $1 move in stock. Calls: 0 to 1, Puts: -1 to 0'}
-                {greek === 'gamma' && 'Rate of change in Delta. Higher Gamma = faster Delta changes'}
-                {greek === 'theta' && 'Time decay per day. How much value the option loses each day'}
-                {greek === 'vega' && 'Sensitivity to volatility changes. How much price changes per 1% IV move'}
-              </div>
-              <div className="mt-3 text-xs text-gray-400">
-                💡 Tip: Options near the money (ATM) have the highest {greek}
-              </div>
-              <div className="mt-3 text-xs text-blue-400">
-                ⏱️ Auto-updates every 30 seconds
+              
+              {optionsData.length > 0 ? (
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {optionsData
+                    .filter((opt: any) => opt.type === 'call')
+                    .slice(0, 10)
+                    .map((opt: any) => {
+                      const greekValue = opt[greek] || 0
+                      const isATM = Math.abs(opt.strike - summary.stockPrice) < 5
+                      const barWidth = greek === 'delta' ? Math.abs(greekValue) * 100 : Math.min(Math.abs(greekValue) * 1000, 100)
+                      
+                      return (
+                        <div key={opt.strike} className={`flex items-center text-xs ${isATM ? 'bg-blue-900/30' : ''} rounded px-2 py-1`}>
+                          <div className="w-16 text-gray-400">${opt.strike}</div>
+                          <div className="flex-1 mx-2">
+                            <div className="h-4 bg-gray-600 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${greekValue > 0 ? 'bg-green-500' : 'bg-red-500'}`}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className={`w-16 text-right font-mono ${greekValue > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {greekValue.toFixed(3)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 text-center py-4">
+                  Loading Greeks data...
+                </div>
+              )}
+              
+              <div className="mt-3 pt-3 border-t border-gray-600 text-xs text-gray-400">
+                {greek === 'delta' && '📊 Delta shows sensitivity to $1 price move'}
+                {greek === 'gamma' && '📊 Gamma shows how fast Delta changes'}
+                {greek === 'theta' && '📊 Theta shows daily time decay (negative)'}
+                {greek === 'vega' && '📊 Vega shows IV sensitivity'}
               </div>
             </div>
           </div>

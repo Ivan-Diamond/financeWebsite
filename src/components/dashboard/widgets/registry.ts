@@ -152,6 +152,30 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetMetadata> = {
     },
     component: () => import('./OptionsFlow/OptionsFlow'),
   },
+  
+  'options-analytics': {
+    id: 'options-analytics',
+    name: 'Options Analytics',
+    icon: '📊',
+    category: 'options',
+    description: 'Comprehensive options analysis with live charts and bid/ask tables',
+    constraints: {
+      minW: 8,
+      minH: 6,
+      maxW: 12,
+      maxH: 12,
+      defaultW: 10,
+      defaultH: 8,
+    },
+    defaultConfig: {
+      // No symbol - will use global activeSymbol
+      strikeCount: 5,
+      showMiniGraphs: true,
+      interval: '1m',
+      refreshInterval: 30000,
+    },
+    component: () => import('./OptionsAnalytics/OptionsAnalytics'),
+  },
 }
 
 /**

@@ -107,7 +107,22 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'quote' && data.data?.symbol === symbol) {
-            setLivePrice(data.data.price)
+            const price = data.data.price
+            setLivePrice(price)
+            
+            // Update the chart with live price
+            if (seriesRef.current && price) {
+              const now = Math.floor(Date.now() / 1000) as any
+              
+              // Update last candle with new price
+              seriesRef.current.update({
+                time: now as any,
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+              })
+            }
           }
         } catch (err) {
           console.error('WebSocket message error:', err)

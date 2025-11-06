@@ -11,6 +11,7 @@ export type WidgetType =
   | 'options-chain'
   | 'greeks-matrix'
   | 'options-flow'
+  | 'options-analytics'
 
 export type WidgetCategory = 'stocks' | 'options' | 'utilities'
 
@@ -45,6 +46,10 @@ export interface WidgetConfig {
   minVolume?: number
   minPremium?: number
   timeframe?: '1h' | '4h' | '1d'
+  
+  // Options analytics settings
+  strikeCount?: number
+  showMiniGraphs?: boolean
   
   // Custom properties
   [key: string]: any

@@ -24,3 +24,35 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Options Analytics Widget Styles */
+.options-analytics-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #111827;
+}
+
+/* Custom scrollbar */
+.options-analytics-container::-webkit-scrollbar,
+.options-analytics-container *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.options-analytics-container::-webkit-scrollbar-track,
+.options-analytics-container *::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 3px;
+}
+
+.options-analytics-container::-webkit-scrollbar-thumb,
+.options-analytics-container *::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+
+.options-analytics-container::-webkit-scrollbar-thumb:hover,
+.options-analytics-container *::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}

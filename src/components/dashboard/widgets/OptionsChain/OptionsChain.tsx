@@ -31,9 +31,9 @@ export default function OptionsChain({ id, config }: WidgetProps) {
 
   useEffect(() => {
     if (selectedExpiry) {
-      fetchChain()
-      // Auto-refresh every 15 seconds (less aggressive, smoother experience)
-      const interval = setInterval(fetchChain, 15000)
+      fetchChain(false) // First load
+      // Auto-refresh every 15 seconds without blocking UI
+      const interval = setInterval(() => fetchChain(true), 15000)
       return () => clearInterval(interval)
     }
   }, [symbol, activeSymbol, selectedExpiry])
@@ -51,9 +51,12 @@ export default function OptionsChain({ id, config }: WidgetProps) {
     }
   }
 
-  const fetchChain = async () => {
+  const fetchChain = async (isUpdate = false) => {
     try {
-      setLoading(true)
+      // Only show loading on first load, not on updates
+      if (!isUpdate) {
+        setLoading(true)
+      }
       const response = await fetch(
         `/api/options/chain/${symbol}?expiry=${selectedExpiry}&strikeRange=10`
       )
