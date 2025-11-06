@@ -149,9 +149,11 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
   }, [activeSymbol, selectedExpiry])
 
-  // Load initial chart data and subscribe to updates
+  // Load initial chart data
   useEffect(() => {
     const loadInitialChartData = async () => {
+      if (!activeSymbol) return
+      
       try {
         // Fetch last hour of data
         const endDate = new Date()
@@ -182,20 +184,21 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
       }
     }
 
-    if (activeSymbol) {
-      loadInitialChartData()
+    loadInitialChartData()
+  }, [activeSymbol]) // Only re-run when symbol changes
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (activeSymbol && isConnected) {
+      console.log(`📈 Subscribing to ${activeSymbol} for chart`)
+      subscribe([activeSymbol])
       
-      if (isConnected) {
-        console.log(`📈 Subscribing to ${activeSymbol} for chart`)
-        subscribe([activeSymbol])
-        
-        return () => {
-          console.log(`📈 Unsubscribing from ${activeSymbol}`)
-          unsubscribe([activeSymbol])
-        }
+      return () => {
+        console.log(`📈 Unsubscribing from ${activeSymbol}`)
+        unsubscribe([activeSymbol])
       }
     }
-  }, [activeSymbol, isConnected, subscribe, unsubscribe, marketStore])
+  }, [activeSymbol, isConnected]) // Removed subscribe/unsubscribe from deps
 
   // Generate simulated mini-graph data
   // In production, this would fetch real intraday data for each contract

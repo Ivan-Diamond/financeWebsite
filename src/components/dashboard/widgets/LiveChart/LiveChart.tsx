@@ -80,9 +80,11 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
     }
   }, [symbol, activeSymbol, interval])
   
-  // Load initial historical data and subscribe to real-time updates
+  // Load initial historical data
   useEffect(() => {
     const loadInitialData = async () => {
+      if (!symbol) return
+      
       setLoading(true)
       try {
         const endDate = new Date()
@@ -116,20 +118,21 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
       }
     }
 
-    if (symbol) {
-      loadInitialData()
+    loadInitialData()
+  }, [symbol]) // Only re-run when symbol changes
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (symbol && isConnected) {
+      console.log(`📈 LiveChart subscribing to ${symbol}`)
+      subscribe([symbol])
       
-      if (isConnected) {
-        console.log(`📈 LiveChart subscribing to ${symbol}`)
-        subscribe([symbol])
-        
-        return () => {
-          console.log(`📈 LiveChart unsubscribing from ${symbol}`)
-          unsubscribe([symbol])
-        }
+      return () => {
+        console.log(`📈 LiveChart unsubscribing from ${symbol}`)
+        unsubscribe([symbol])
       }
     }
-  }, [symbol, isConnected, subscribe, unsubscribe, marketStore])
+  }, [symbol, isConnected]) // Removed subscribe/unsubscribe from deps
   
   // Update chart when candle data changes
   useEffect(() => {
