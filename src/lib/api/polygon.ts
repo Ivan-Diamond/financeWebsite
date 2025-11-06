@@ -1,7 +1,7 @@
 import { MarketQuote, OptionsContract, CandlestickData } from '@/types'
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY
-const POLYGON_REST_API = 'https://api.polygon.io'
+const POLYGON_REST_API = 'https://api.massive.com'
 
 if (!POLYGON_API_KEY) {
   console.warn('⚠️  POLYGON_API_KEY not set - market data will be unavailable')
