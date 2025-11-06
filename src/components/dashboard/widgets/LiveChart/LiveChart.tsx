@@ -145,12 +145,79 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
         close: candle.close,
       }))
       
+      // Use setData to load all historical data
       seriesRef.current.setData(chartData)
+      
+      // Auto-scroll to latest candle
+      if (chartRef.current) {
+        chartRef.current.timeScale().scrollToRealTime()
+      }
     }
   }, [candleData])
 
-  const changeInterval = (newInterval: string) => {
+  const changeInterval = async (newInterval: string) => {
     onConfigChange({ ...config, interval: newInterval as any })
+    
+    // Fetch new data for the selected interval
+    setLoading(true)
+    try {
+      const endDate = new Date()
+      let startDate = new Date()
+      
+      // Adjust date range based on interval
+      switch(newInterval) {
+        case '1m':
+        case '5m':
+        case '15m':
+          startDate.setDate(startDate.getDate() - 1) // 1 day
+          break
+        case '1h':
+          startDate.setDate(startDate.getDate() - 7) // 1 week
+          break
+        case '4h':
+          startDate.setDate(startDate.getDate() - 30) // 1 month
+          break
+        case '1d':
+          startDate.setFullYear(startDate.getFullYear() - 1) // 1 year
+          break
+      }
+      
+      // Map interval to API timespan
+      const timespanMap: Record<string, { timespan: string, multiplier: number }> = {
+        '1m': { timespan: 'minute', multiplier: 1 },
+        '5m': { timespan: 'minute', multiplier: 5 },
+        '15m': { timespan: 'minute', multiplier: 15 },
+        '1h': { timespan: 'hour', multiplier: 1 },
+        '4h': { timespan: 'hour', multiplier: 4 },
+        '1d': { timespan: 'day', multiplier: 1 },
+      }
+      
+      const { timespan, multiplier } = timespanMap[newInterval] || { timespan: 'minute', multiplier: 5 }
+      
+      const response = await fetch(
+        `/api/market/historical/${symbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=${timespan}&multiplier=${multiplier}`
+      )
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          const candles = result.data.map((bar: any) => ({
+            time: bar.time,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume || 0,
+          }))
+          marketStore.setCandles(symbol, candles)
+          console.log(`📈 Loaded ${candles.length} candles for ${symbol} at ${newInterval} interval`)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading interval data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
