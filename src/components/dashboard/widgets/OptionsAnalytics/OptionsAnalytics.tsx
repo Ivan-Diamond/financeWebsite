@@ -23,8 +23,46 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   const [error, setError] = useState<string | null>(null)
   
   // Use new hooks - handle subscriptions automatically
-  const { candleData: chartCandles, isConnected } = useMarketData(activeSymbol, '1d')
+  const chartIntervalConfig = config.interval || '5m'
+  const { candleData: chartCandles, isConnected } = useMarketData(activeSymbol, chartIntervalConfig)
   const setCandles = useMarketStore(state => state.setCandles)
+  
+  // Fetch initial historical data for the chart
+  useEffect(() => {
+    const loadChartData = async () => {
+      if (!activeSymbol) return
+      
+      try {
+        const endDate = new Date()
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - 1) // Last 24 hours
+        
+        const response = await fetch(
+          `/api/market/historical/${activeSymbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=5`
+        )
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data && result.data.length > 0) {
+            const candles = result.data.map((bar: any) => ({
+              time: bar.time,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: bar.volume || 0,
+            }))
+            setCandles(activeSymbol, candles, chartIntervalConfig)
+            console.log(`📊 OptionsAnalytics loaded ${candles.length} chart candles for ${activeSymbol}`)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chart data:', error)
+      }
+    }
+    
+    loadChartData()
+  }, [activeSymbol, chartIntervalConfig, setCandles])
   
   // Get contract IDs for subscription
   const contractIds = useMemo(() => {
@@ -38,7 +76,6 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   // Configuration
   const strikeCount = config.strikeCount || 5
   const showMiniGraphs = config.showMiniGraphs !== false
-  const chartInterval = config.interval || '1m'
 
   // Fetch available expiries
   const fetchExpiries = useCallback(async () => {
