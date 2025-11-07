@@ -14,10 +14,8 @@ import LiveChartSection from './LiveChartSection'
 export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
   const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
-  const chartCandles = useMarketStore(state => state.candles.get(activeSymbol) || [])
+  const chartCandles = useMarketStore(state => state.candles.get(activeSymbol))
   const setCandles = useMarketStore(state => state.setCandles)
-  // Don't subscribe to quotes - we'll fetch them manually when needed
-  const getQuote = useMarketStore(state => state.quotes.get.bind(state.quotes))
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
@@ -398,7 +396,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
         <div className="flex flex-col overflow-hidden">
           <LiveChartSection
             symbol={activeSymbol}
-            data={chartCandles}
+            data={chartCandles || []}
             height={0}
           />
         </div>

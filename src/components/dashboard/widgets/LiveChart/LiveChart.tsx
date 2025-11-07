@@ -22,7 +22,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   
   // Get live data from market store with proper subscription
   const liveQuote = useMarketStore(state => state.quotes.get(symbol))
-  const candleData = useMarketStore(state => state.candles.get(symbol) || [])
+  const candleData = useMarketStore(state => state.candles.get(symbol))
   // Get setCandles action without subscribing to data changes
   const setCandles = useMarketStore(state => state.setCandles)
 
@@ -137,7 +137,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   
   // Update chart when candle data changes
   useEffect(() => {
-    if (seriesRef.current && candleData.length > 0) {
+    if (seriesRef.current && candleData && candleData.length > 0) {
       const chartData = candleData.map(candle => ({
         time: Math.floor(candle.time / 1000) as any,
         open: candle.open,
