@@ -59,6 +59,7 @@ export function useMarketData(symbol: string, interval: string = '5m') {
 export function useOptionsData(contractIds: string[]) {
   const [widgetId] = useState(() => generateWidgetId())
   const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
+  const [currentContracts, setCurrentContracts] = useState<string[]>([])
   
   // Get quotes for all contracts
   const quotes = useMarketStore(state => {
@@ -72,18 +73,39 @@ export function useOptionsData(contractIds: string[]) {
     return result
   })
   
-  // Subscribe on mount, unsubscribe on unmount
+  // Subscribe/unsubscribe with proper cleanup
   useEffect(() => {
-    if (contractIds.length === 0) return
-    
-    // Subscribe to option contracts
-    wsManager.subscribeToOptions(contractIds, widgetId)
-    
-    // Cleanup: unsubscribe
-    return () => {
-      wsManager.unsubscribeFromOptions(contractIds, widgetId)
+    if (contractIds.length === 0) {
+      // Unsubscribe from all if empty
+      if (currentContracts.length > 0) {
+        wsManager.unsubscribeFromOptions(currentContracts, widgetId)
+        setCurrentContracts([])
+      }
+      return
     }
-  }, [contractIds.join(','), widgetId]) // Use join for stable dependency
+    
+    const contractIdsKey = contractIds.join(',')
+    const currentKey = currentContracts.join(',')
+    
+    // Only update if contracts actually changed
+    if (contractIdsKey !== currentKey) {
+      // Unsubscribe from old contracts
+      if (currentContracts.length > 0) {
+        wsManager.unsubscribeFromOptions(currentContracts, widgetId)
+      }
+      
+      // Subscribe to new contracts
+      wsManager.subscribeToOptions(contractIds, widgetId)
+      setCurrentContracts(contractIds)
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (contractIds.length > 0) {
+        wsManager.unsubscribeFromOptions(contractIds, widgetId)
+      }
+    }
+  }, [contractIds.join(','), widgetId])
   
   // Listen to connection status
   useEffect(() => {

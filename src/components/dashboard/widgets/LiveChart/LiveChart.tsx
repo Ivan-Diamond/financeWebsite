@@ -12,7 +12,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
-  const interval = config.interval || '5m'
+  // Use local state for interval to prevent config reset issues
+  const [interval, setInterval] = useState(config.interval || '5m')
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
@@ -116,7 +117,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
     }
 
     loadInitialData()
-  }, [symbol, interval]) // Re-run when symbol or interval changes
+  }, [symbol]) // Only re-run when symbol changes, NOT interval
   
   // Update chart when candle data changes
   useEffect(() => {
@@ -140,6 +141,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   }, [candleData])
 
   const changeInterval = async (newInterval: string) => {
+    // Update local state AND config
+    setInterval(newInterval as any)
     onConfigChange({ ...config, interval: newInterval as any })
     
     // Fetch new data for the selected interval
