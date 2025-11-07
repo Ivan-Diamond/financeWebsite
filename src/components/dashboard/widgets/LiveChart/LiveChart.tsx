@@ -1,17 +1,15 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
-import { createChart, IChartApi, ISeriesApi, CandlestickData } from 'lightweight-charts'
 import { useDashboardStore } from '@/stores/dashboardStore'
-import { useWebSocket } from '@/lib/socket/client'
+import { createChart, IChartApi, ISeriesApi, CandlestickData } from 'lightweight-charts'
 import { useMarketStore } from '@/stores/marketStore'
+import { useMarketData } from '@/hooks/useMarketData'
 
 export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   // Use selector for proper reactivity
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
-  const { subscribe, unsubscribe, isConnected } = useWebSocket()
-  
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
   const interval = config.interval || '5m'
@@ -20,10 +18,8 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const [loading, setLoading] = useState(false)
   
-  // Get live data from market store with proper subscription
-  const liveQuote = useMarketStore(state => state.quotes.get(symbol))
-  const candleData = useMarketStore(state => state.getCandles(symbol, interval))
-  // Get setCandles action without subscribing to data changes
+  // Use new hook - handles subscriptions automatically
+  const { candleData, quote: liveQuote, isConnected } = useMarketData(symbol, interval)
   const setCandles = useMarketStore(state => state.setCandles)
 
   useEffect(() => {
@@ -120,20 +116,7 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
     }
 
     loadInitialData()
-  }, [symbol]) // Only re-run when symbol changes
-
-  // Subscribe to real-time updates
-  useEffect(() => {
-    if (symbol && isConnected) {
-      console.log(`📈 LiveChart subscribing to ${symbol}`)
-      subscribe([symbol])
-      
-      return () => {
-        console.log(`📈 LiveChart unsubscribing from ${symbol}`)
-        unsubscribe([symbol])
-      }
-    }
-  }, [symbol, isConnected]) // Removed subscribe/unsubscribe from deps
+  }, [symbol, interval]) // Re-run when symbol or interval changes
   
   // Update chart when candle data changes
   useEffect(() => {

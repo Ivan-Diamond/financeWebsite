@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { WidgetProps } from '../../types'
 import { useDashboardStore } from '@/stores/dashboardStore'
-import { useWebSocket } from '@/lib/socket/client'
 import { useMarketStore } from '@/stores/marketStore'
+import { useMarketData, useOptionsData } from '@/hooks/useMarketData'
 import { OptionsChainData, OptionContract, MiniGraphData, IntradayDataPoint } from './types'
 import ExpirySelector from './ExpirySelector'
 import StrikeOverview from './StrikeOverview'
@@ -13,9 +13,6 @@ import LiveChartSection from './LiveChartSection'
 
 export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
-  const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
-  const chartCandles = useMarketStore(state => state.getCandles(activeSymbol, '1d'))
-  const setCandles = useMarketStore(state => state.setCandles)
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
@@ -24,6 +21,19 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   const [miniGraphData, setMiniGraphData] = useState<Map<string, MiniGraphData>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Use new hooks - handle subscriptions automatically
+  const { candleData: chartCandles, isConnected } = useMarketData(activeSymbol, '1d')
+  const setCandles = useMarketStore(state => state.setCandles)
+  
+  // Get contract IDs for subscription
+  const contractIds = useMemo(() => {
+    if (!optionsData) return []
+    return [...optionsData.calls, ...optionsData.puts].map(c => c.contractId)
+  }, [optionsData])
+  
+  // Subscribe to options automatically
+  const { quotes: optionQuotes } = useOptionsData(contractIds)
 
   // Configuration
   const strikeCount = config.strikeCount || 5
@@ -185,20 +195,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
 
     loadInitialChartData()
-  }, [activeSymbol]) // Only re-run when symbol changes
-
-  // Subscribe to real-time updates
-  useEffect(() => {
-    if (activeSymbol && isConnected) {
-      console.log(`📈 Subscribing to ${activeSymbol} for chart`)
-      subscribe([activeSymbol])
-      
-      return () => {
-        console.log(`📈 Unsubscribing from ${activeSymbol}`)
-        unsubscribe([activeSymbol])
-      }
-    }
-  }, [activeSymbol, isConnected]) // Removed subscribe/unsubscribe from deps
+  }, [activeSymbol, setCandles]) // Only re-run when symbol changes
 
   // Generate simulated mini-graph data
   // In production, this would fetch real intraday data for each contract
@@ -285,28 +282,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
   }, [optionsData, showMiniGraphs, generateMiniGraphData])
 
-  // Effect: Subscribe to real-time option updates via WebSocket
-  useEffect(() => {
-    if (!optionsData || !isConnected) return
-
-    const allContracts = [...optionsData.calls, ...optionsData.puts]
-    const contractIds = allContracts.map(c => c.contractId)
-
-    if (contractIds.length > 0) {
-      console.log(`📡 Subscribing to ${contractIds.length} option contracts`)
-      subscribeToOptions(contractIds)
-
-      return () => {
-        console.log(`📡 Unsubscribing from ${contractIds.length} option contracts`)
-        unsubscribeFromOptions(contractIds)
-      }
-    }
-  }, [optionsData, isConnected, subscribeToOptions, unsubscribeFromOptions])
-
-  // Effect: Update mini-graphs with real-time data from WebSocket
-  // REMOVED: This was causing infinite re-renders by subscribing to all quotes
-  // TODO: Implement throttled or manual update mechanism if needed
-
+  // Note: Option contract subscriptions now handled automatically by useOptionsData hook
+  
   // Handle expiry change
   const handleExpiryChange = (expiry: string) => {
     setSelectedExpiry(expiry)

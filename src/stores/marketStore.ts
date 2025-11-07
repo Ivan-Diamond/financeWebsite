@@ -10,15 +10,24 @@ interface Candle {
   volume: number
 }
 
+interface RawTick {
+  symbol: string
+  timestamp: number
+  price: number
+  volume: number
+}
+
 interface MarketState {
   quotes: Map<string, MarketQuote>
   candles: Map<string, Candle[]> // Key format: "symbol:interval" e.g. "AAPL:5m"
+  ticks: Map<string, RawTick[]> // Raw tick data for aggregation
   subscribedSymbols: Set<string>
   isConnected: boolean
   
   // Actions
   setQuote: (symbol: string, quote: MarketQuote) => void
   setQuotes: (quotes: Map<string, MarketQuote>) => void
+  addTick: (symbol: string, tick: RawTick) => void
   addCandle: (symbol: string, candle: Candle, interval?: string) => void
   setCandles: (symbol: string, candles: Candle[], interval?: string) => void
   getCandles: (symbol: string, interval?: string) => Candle[] | undefined
@@ -31,6 +40,7 @@ interface MarketState {
 export const useMarketStore = create<MarketState>((set, get) => ({
   quotes: new Map(),
   candles: new Map(),
+  ticks: new Map(),
   subscribedSymbols: new Set(),
   isConnected: false,
   
@@ -41,6 +51,22 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   }),
   
   setQuotes: (quotes) => set({ quotes }),
+  
+  addTick: (symbol, tick) => set((state) => {
+    const newTicks = new Map(state.ticks)
+    const existingTicks = [...(newTicks.get(symbol) || [])]
+    
+    // Add new tick
+    existingTicks.push(tick)
+    
+    // Keep only last 1000 ticks (configurable based on needs)
+    if (existingTicks.length > 1000) {
+      existingTicks.shift()
+    }
+    
+    newTicks.set(symbol, existingTicks)
+    return { ticks: newTicks }
+  }),
   
   addCandle: (symbol, candle, interval = '5m') => set((state) => {
     const key = `${symbol}:${interval}`
@@ -104,7 +130,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   
   setConnected: (isConnected) => set({ isConnected }),
   
-  clearQuotes: () => set({ quotes: new Map(), candles: new Map() }),
+  clearQuotes: () => set({ quotes: new Map(), candles: new Map(), ticks: new Map() }),
 }))
 
-export type { Candle }
+export type { Candle, RawTick }
