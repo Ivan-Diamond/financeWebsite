@@ -14,7 +14,14 @@ export default function LiveChartSection({ symbol, data }: LiveChartSectionProps
   
   // Debug logging
   useEffect(() => {
-    console.log(`📈 LiveChartSection render:`, { symbol, dataLength: data?.length, chartHeight })
+    console.log(`📈 LiveChartSection:`, { 
+      symbol, 
+      dataLength: data?.length, 
+      chartHeight,
+      hasContainer: !!chartContainerRef.current,
+      hasChart: !!chartRef.current,
+      hasSeries: !!seriesRef.current
+    })
   }, [symbol, data, chartHeight])
 
   // Measure container height
@@ -33,69 +40,100 @@ export default function LiveChartSection({ symbol, data }: LiveChartSectionProps
   }, [])
 
   useEffect(() => {
-    if (!chartContainerRef.current || chartHeight === 0) return
-
-    // Create chart
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { color: '#1f2937' },
-        textColor: '#d1d5db',
-      },
-      grid: {
-        vertLines: { color: '#374151' },
-        horzLines: { color: '#374151' },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: chartHeight,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    })
-
-    // Add candlestick series
-    const series = chart.addCandlestickSeries({
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderVisible: false,
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-    })
-
-    chartRef.current = chart
-    seriesRef.current = series
-
-    // Handle resize
-    const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ 
-          width: chartContainerRef.current.clientWidth 
-        })
-      }
+    if (!chartContainerRef.current) {
+      console.log('📈 Chart creation skipped: no container')
+      return
+    }
+    
+    if (chartHeight === 0) {
+      console.log('📈 Chart creation skipped: height is 0')
+      return
     }
 
-    window.addEventListener('resize', handleResize)
+    try {
+      console.log(`📈 Creating chart with height: ${chartHeight}px`)
+      
+      // Create chart
+      const chart = createChart(chartContainerRef.current, {
+        layout: {
+          background: { color: '#1f2937' },
+          textColor: '#d1d5db',
+        },
+        grid: {
+          vertLines: { color: '#374151' },
+          horzLines: { color: '#374151' },
+        },
+        width: chartContainerRef.current.clientWidth,
+        height: chartHeight,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+        },
+      })
 
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (chartRef.current) {
-        chartRef.current.remove()
+      // Add candlestick series
+      const series = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderVisible: false,
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+      })
+
+      chartRef.current = chart
+      seriesRef.current = series
+      
+      console.log('📈 Chart created successfully')
+
+      // Handle resize
+      const handleResize = () => {
+        if (chartContainerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({ 
+            width: chartContainerRef.current.clientWidth 
+          })
+        }
       }
+
+      window.addEventListener('resize', handleResize)
+
+      return () => {
+        window.removeEventListener('resize', handleResize)
+        if (chartRef.current) {
+          chartRef.current.remove()
+        }
+      }
+    } catch (error) {
+      console.error('📈 Chart creation error:', error)
     }
   }, [chartHeight])
 
   useEffect(() => {
-    if (!seriesRef.current || !data || data.length === 0) return
+    if (!seriesRef.current) {
+      console.log('📈 Data update skipped: no series')
+      return
+    }
+    
+    if (!data || data.length === 0) {
+      console.log('📈 Data update skipped: no data')
+      return
+    }
 
-    const formattedData = data.map(d => ({
-      time: Math.floor(d.time / 1000) as any,
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close,
-    }))
+    try {
+      console.log(`📈 Setting ${data.length} candles to chart`)
+      
+      const formattedData = data.map(d => ({
+        time: Math.floor(d.time / 1000) as any,
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+      }))
 
-    seriesRef.current.setData(formattedData)
+      seriesRef.current.setData(formattedData)
+      console.log('📈 Data set successfully')
+    } catch (error) {
+      console.error('📈 Data setting error:', error)
+    }
   }, [data])
 
   return (
