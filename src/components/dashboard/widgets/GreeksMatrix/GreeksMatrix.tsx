@@ -22,8 +22,9 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
   // Use WebSocket for real-time stock price (subscription only)
   useMarketQuote(symbol)
   
-  // Get quote directly from store
+  // Get quotes directly from store for live updates
   const stockQuote = useMarketStore(state => state.quotes.get(symbol))
+  const liveQuotes = useMarketStore(state => state.quotes)
 
   useEffect(() => {
     fetchData()
@@ -48,9 +49,15 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
         const options = chainData.data.chain
         setOptionsData(options)
         
-        // Calculate summary
-        const callVolume = options.filter((o: any) => o.type === 'call').reduce((sum: number, o: any) => sum + (o.volume || 0), 0)
-        const putVolume = options.filter((o: any) => o.type === 'put').reduce((sum: number, o: any) => sum + (o.volume || 0), 0)
+        // Calculate summary - use live volumes if available
+        const callVolume = options.filter((o: any) => o.type === 'call').reduce((sum: number, o: any) => {
+          const liveData = liveQuotes.get(o.contractId)
+          return sum + (liveData?.volume ?? o.volume ?? 0)
+        }, 0)
+        const putVolume = options.filter((o: any) => o.type === 'put').reduce((sum: number, o: any) => {
+          const liveData = liveQuotes.get(o.contractId)
+          return sum + (liveData?.volume ?? o.volume ?? 0)
+        }, 0)
         
         setSummary({
           totalCallDelta: callVolume,

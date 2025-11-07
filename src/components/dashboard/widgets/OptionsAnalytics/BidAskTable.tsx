@@ -1,5 +1,6 @@
 import React from 'react'
 import { OptionContract } from './types'
+import { useMarketStore } from '@/stores/marketStore'
 
 interface BidAskTableProps {
   title: string
@@ -8,6 +9,9 @@ interface BidAskTableProps {
 }
 
 export default function BidAskTable({ title, contracts, type }: BidAskTableProps) {
+  // Get live quotes from store for real-time updates
+  const quotes = useMarketStore(state => state.quotes)
+  
   if (!contracts || contracts.length === 0) {
     return (
       <div className="section">
@@ -37,22 +41,32 @@ export default function BidAskTable({ title, contracts, type }: BidAskTableProps
             </tr>
           </thead>
           <tbody>
-            {contracts.map((contract) => (
-              <tr 
-                key={contract.contractId} 
-                className="border-b border-gray-800/50 hover:bg-gray-700/30"
-              >
-                <td className="py-1.5 px-2 font-mono font-bold text-gray-100">
-                  ${contract.strike.toFixed(2)}
-                </td>
-                <td className="text-right py-1.5 px-1 font-mono text-green-400">
-                  {contract.bid.toFixed(2)}
-                </td>
-                <td className="text-right py-1.5 px-1 font-mono text-red-400">
-                  {contract.ask.toFixed(2)}
-                </td>
-              </tr>
-            ))}
+            {contracts.map((contract) => {
+              // Get live quote for this contract from store
+              const liveQuote = quotes.get(contract.contractId)
+              
+              // Use live data if available, fallback to initial data
+              const displayBid = liveQuote?.bid ?? contract.bid
+              const displayAsk = liveQuote?.ask ?? contract.ask
+              const displayLast = liveQuote?.price ?? contract.last
+              
+              return (
+                <tr 
+                  key={contract.contractId} 
+                  className="border-b border-gray-800/50 hover:bg-gray-700/30"
+                >
+                  <td className="py-1.5 px-2 font-mono font-bold text-gray-100">
+                    ${contract.strike.toFixed(2)}
+                  </td>
+                  <td className="text-right py-1.5 px-1 font-mono text-green-400">
+                    {displayBid.toFixed(2)}
+                  </td>
+                  <td className="text-right py-1.5 px-1 font-mono text-red-400">
+                    {displayAsk.toFixed(2)}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

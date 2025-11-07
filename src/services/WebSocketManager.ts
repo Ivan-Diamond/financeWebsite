@@ -241,14 +241,18 @@ export class WebSocketManager {
         volume: data.volume || 0,
       })
       
-      // Store quote
+      // Store quote with bid/ask/last for options
       marketStore.setQuote(data.contractId, {
         symbol: data.contractId,
-        price: data.price,
-        change: data.change,
-        changePercent: data.changePercent,
-        volume: data.volume,
+        price: data.price || data.last || 0,
+        change: data.change || 0,
+        changePercent: data.changePercent || 0,
+        volume: data.volume || 0,
         timestamp: data.timestamp,
+        // Options-specific fields
+        bid: data.bid,
+        ask: data.ask,
+        last: data.last || data.price,
       })
     }
     

@@ -30,8 +30,9 @@ export default function OptionsChain({ id, config }: WidgetProps) {
   // Use WebSocket for real-time stock price (subscription only)
   useMarketQuote(symbol)
   
-  // Get quote directly from store
+  // Get quotes directly from store for live updates
   const stockQuote = useMarketStore(state => state.quotes.get(symbol))
+  const liveQuotes = useMarketStore(state => state.quotes)
   
   // Get contract IDs from chain for WebSocket subscription
   const contractIds = useMemo(() => {
@@ -174,6 +175,27 @@ export default function OptionsChain({ id, config }: WidgetProps) {
                 const callITM = row.strike < currentPrice
                 const putITM = row.strike > currentPrice
                 
+                // Get live quotes for this strike's call and put contracts
+                // Find the contract IDs from chainData if available
+                const callContract = chainData?.chain.find(
+                  (opt: any) => opt.strike === row.strike && opt.type === 'call'
+                )
+                const putContract = chainData?.chain.find(
+                  (opt: any) => opt.strike === row.strike && opt.type === 'put'
+                )
+                
+                // Get live data from store, fallback to initial data
+                const callLive = callContract ? liveQuotes.get(callContract.contractId) : null
+                const putLive = putContract ? liveQuotes.get(putContract.contractId) : null
+                
+                const callBid = callLive?.bid ?? row.call?.bid
+                const callAsk = callLive?.ask ?? row.call?.ask
+                const callVolume = callLive?.volume ?? row.call?.volume
+                
+                const putBid = putLive?.bid ?? row.put?.bid
+                const putAsk = putLive?.ask ?? row.put?.ask
+                const putVolume = putLive?.volume ?? row.put?.volume
+                
                 return (
                   <tr
                     key={row.strike}
@@ -183,15 +205,15 @@ export default function OptionsChain({ id, config }: WidgetProps) {
                   >
                     {/* Call Bid */}
                     <td className={`px-2 py-2 text-right ${callITM ? 'text-green-400 font-medium' : 'text-gray-400'}`}>
-                      {row.call?.bid.toFixed(2) || '-'}
+                      {callBid != null ? callBid.toFixed(2) : '-'}
                     </td>
                     {/* Call Ask */}
                     <td className={`px-2 py-2 text-right ${callITM ? 'text-green-400 font-medium' : 'text-gray-400'}`}>
-                      {row.call?.ask.toFixed(2) || '-'}
+                      {callAsk != null ? callAsk.toFixed(2) : '-'}
                     </td>
                     {/* Call Volume */}
-                    <td className={`px-2 py-2 text-right text-gray-500 ${row.call && row.call.volume > 1000 ? 'font-bold text-yellow-400' : ''}`}>
-                      {row.call?.volume || '-'}
+                    <td className={`px-2 py-2 text-right text-gray-500 ${callVolume && callVolume > 1000 ? 'font-bold text-yellow-400' : ''}`}>
+                      {callVolume || '-'}
                     </td>
                     
                     {/* Strike */}
@@ -202,16 +224,16 @@ export default function OptionsChain({ id, config }: WidgetProps) {
                     </td>
                     
                     {/* Put Volume */}
-                    <td className={`px-2 py-2 text-right text-gray-500 ${row.put && row.put.volume > 1000 ? 'font-bold text-yellow-400' : ''}`}>
-                      {row.put?.volume || '-'}
+                    <td className={`px-2 py-2 text-right text-gray-500 ${putVolume && putVolume > 1000 ? 'font-bold text-yellow-400' : ''}`}>
+                      {putVolume || '-'}
                     </td>
                     {/* Put Bid */}
                     <td className={`px-2 py-2 text-right ${putITM ? 'text-red-400 font-medium' : 'text-gray-400'}`}>
-                      {row.put?.bid.toFixed(2) || '-'}
+                      {putBid != null ? putBid.toFixed(2) : '-'}
                     </td>
                     {/* Put Ask */}
                     <td className={`px-2 py-2 text-right ${putITM ? 'text-red-400 font-medium' : 'text-gray-400'}`}>
-                      {row.put?.ask.toFixed(2) || '-'}
+                      {putAsk != null ? putAsk.toFixed(2) : '-'}
                     </td>
                   </tr>
                 )

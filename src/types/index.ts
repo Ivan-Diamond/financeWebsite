@@ -100,6 +100,10 @@ export interface MarketQuote {
   open?: number
   previousClose?: number
   timestamp: number
+  // Options-specific fields (optional for stock quotes)
+  bid?: number
+  ask?: number
+  last?: number
 }
 
 export interface OptionsContract {
