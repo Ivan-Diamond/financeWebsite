@@ -16,7 +16,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
   const chartCandles = useMarketStore(state => state.candles.get(activeSymbol) || [])
   const setCandles = useMarketStore(state => state.setCandles)
-  const quotes = useMarketStore(state => state.quotes)
+  // Don't subscribe to quotes - we'll fetch them manually when needed
+  const getQuote = useMarketStore(state => state.quotes.get.bind(state.quotes))
   
   // State
   const [expiries, setExpiries] = useState<string[]>([])
@@ -305,50 +306,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   }, [optionsData, isConnected, subscribeToOptions, unsubscribeFromOptions])
 
   // Effect: Update mini-graphs with real-time data from WebSocket
-  useEffect(() => {
-    if (!optionsData) return
-
-    const allContracts = [...optionsData.calls, ...optionsData.puts]
-    
-    // Check for updates from market store
-    allContracts.forEach(contract => {
-      const quote = quotes.get(contract.contractId)
-      
-      if (quote && quote.price) {
-        // Update mini-graph data with new price point
-        setMiniGraphData(prev => {
-          const existing = prev.get(contract.contractId)
-          if (!existing) return prev
-
-          const newData = [...existing.data]
-          const now = Date.now()
-          
-          // Add new data point
-          newData.push({ time: now, value: quote.price })
-          
-          // Keep last 30 points
-          if (newData.length > 30) {
-            newData.shift()
-          }
-
-          const firstValue = newData[0].value
-          const lastValue = newData[newData.length - 1].value
-          const change = lastValue - firstValue
-          const changePercent = (change / firstValue) * 100
-
-          const updated = new Map(prev)
-          updated.set(contract.contractId, {
-            contractId: contract.contractId,
-            data: newData,
-            change,
-            changePercent,
-          })
-          
-          return updated
-        })
-      }
-    })
-  }, [quotes, optionsData])
+  // REMOVED: This was causing infinite re-renders by subscribing to all quotes
+  // TODO: Implement throttled or manual update mechanism if needed
 
   // Handle expiry change
   const handleExpiryChange = (expiry: string) => {
