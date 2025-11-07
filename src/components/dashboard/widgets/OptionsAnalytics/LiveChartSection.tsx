@@ -4,10 +4,9 @@ import { createChart, IChartApi, ISeriesApi } from 'lightweight-charts'
 interface LiveChartSectionProps {
   symbol: string
   data: Array<{ time: number; open: number; high: number; low: number; close: number }>
-  height?: number
 }
 
-export default function LiveChartSection({ symbol, data, height = 0 }: LiveChartSectionProps) {
+export default function LiveChartSection({ symbol, data }: LiveChartSectionProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)

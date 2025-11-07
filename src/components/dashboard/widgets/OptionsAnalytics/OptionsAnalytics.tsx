@@ -374,7 +374,6 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
           <LiveChartSection
             symbol={activeSymbol}
             data={chartCandles || []}
-            height={0}
           />
         </div>
 

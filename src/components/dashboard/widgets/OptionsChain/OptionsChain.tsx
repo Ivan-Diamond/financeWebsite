@@ -118,7 +118,7 @@ export default function OptionsChain({ id, config }: WidgetProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-700">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-white">
               Options Chain: {symbol}
@@ -127,21 +127,26 @@ export default function OptionsChain({ id, config }: WidgetProps) {
               Spot: {stockQuote ? formatCurrency(stockQuote.price) : '-'} • ATM: {formatCurrency(atmStrike)}
             </div>
           </div>
-        </div>
-        <div className="flex gap-1 overflow-x-auto">
-          {expiries.map((exp) => (
-            <button
-              key={exp}
-              onClick={() => setSelectedExpiry(exp)}
-              className={`px-2 py-1 text-xs rounded whitespace-nowrap transition-colors ${
-                selectedExpiry === exp
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
+          
+          {/* Expiry Dropdown */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Expiry:</label>
+            <select
+              value={selectedExpiry || ''}
+              onChange={(e) => setSelectedExpiry(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-gray-700 text-white border border-gray-600 rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {new Date(exp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </button>
-          ))}
+              {expiries.map((exp) => {
+                const date = new Date(exp)
+                const daysOut = Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                return (
+                  <option key={exp} value={exp}>
+                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({daysOut}d)
+                  </option>
+                )
+              })}
+            </select>
+          </div>
         </div>
       </div>
 
