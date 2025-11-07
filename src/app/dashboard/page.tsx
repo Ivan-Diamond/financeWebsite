@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react'
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid'
 import { WidgetToolbar } from '@/components/dashboard/WidgetToolbar'
 import { WebSocketProvider } from '@/components/WebSocketProvider'
+import { MarketClock } from '@/components/dashboard/MarketClock'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -47,9 +48,7 @@ export default function DashboardPage() {
                   <a href="/dashboard" className="text-white px-3 py-1.5 rounded text-sm font-medium bg-gray-700">
                     Dashboard
                   </a>
-                  <a href="/dashboard/test-working" className="text-gray-300 hover:text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-gray-700">
-                    🧪 Test API
-                  </a>
+                  <MarketClock />
                 </nav>
               </div>
               
