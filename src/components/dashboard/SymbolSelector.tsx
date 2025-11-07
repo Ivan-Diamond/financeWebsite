@@ -14,6 +14,8 @@ export function SymbolSelector() {
   const [isOpen, setIsOpen] = useState(false)
   const [newSymbol, setNewSymbol] = useState('')
   const [showInput, setShowInput] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -22,11 +24,47 @@ export function SymbolSelector() {
     }
   }, [showInput])
 
-  const handleAddSymbol = () => {
-    if (newSymbol.trim()) {
-      addSymbol(newSymbol.trim())
+  const handleAddSymbol = async () => {
+    const symbol = newSymbol.trim().toUpperCase()
+    
+    if (!symbol) {
+      setAddError('Enter a symbol')
+      return
+    }
+    
+    if (symbolList.includes(symbol)) {
+      setAddError('Already in list')
+      return
+    }
+    
+    if (symbol.length > 5) {
+      setAddError('Invalid symbol')
+      return
+    }
+    
+    // Validate symbol exists via API
+    setIsValidating(true)
+    setAddError('')
+    
+    try {
+      const response = await fetch(`/api/market/quote/${symbol}`)
+      const data = await response.json()
+      
+      if (!response.ok || !data.success || !data.data) {
+        setAddError('Symbol not found')
+        setIsValidating(false)
+        return
+      }
+      
+      // Symbol is valid, add it
+      addSymbol(symbol)
       setNewSymbol('')
       setShowInput(false)
+      setAddError('')
+    } catch (err) {
+      setAddError('Failed to validate symbol')
+    } finally {
+      setIsValidating(false)
     }
   }
 
@@ -36,6 +74,9 @@ export function SymbolSelector() {
     } else if (e.key === 'Escape') {
       setShowInput(false)
       setNewSymbol('')
+      setAddError('')
+    } else {
+      setAddError('')
     }
   }
 
@@ -111,32 +152,41 @@ export function SymbolSelector() {
             {/* Add Symbol Section */}
             <div className="border-t border-gray-700 p-3">
               {showInput ? (
-                <div className="flex space-x-2">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={newSymbol}
-                    onChange={(e) => setNewSymbol(e.target.value.toUpperCase())}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Enter symbol..."
-                    className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-                    maxLength={10}
-                  />
-                  <button
-                    onClick={handleAddSymbol}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowInput(false)
-                      setNewSymbol('')
-                    }}
-                    className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors"
-                  >
-                    ✕
-                  </button>
+                <div>
+                  <div className="flex space-x-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={newSymbol}
+                      onChange={(e) => setNewSymbol(e.target.value.toUpperCase())}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Enter symbol..."
+                      className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                      maxLength={5}
+                      disabled={isValidating}
+                    />
+                    <button
+                      onClick={handleAddSymbol}
+                      disabled={isValidating}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isValidating ? '...' : 'Add'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowInput(false)
+                        setNewSymbol('')
+                        setAddError('')
+                      }}
+                      disabled={isValidating}
+                      className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors disabled:opacity-50"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {addError && (
+                    <div className="text-red-400 text-xs mt-2">{addError}</div>
+                  )}
                 </div>
               ) : (
                 <button

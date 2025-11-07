@@ -9,6 +9,7 @@ export default function Watchlist({ id, config, onConfigChange }: WidgetProps) {
   const [loading, setLoading] = useState(true)
   const [newSymbol, setNewSymbol] = useState('')
   const [addError, setAddError] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
   
   const symbols = config.symbols || ['AAPL', 'TSLA', 'NVDA']
 
@@ -38,7 +39,7 @@ export default function Watchlist({ id, config, onConfigChange }: WidgetProps) {
     return () => clearInterval(interval)
   }, [symbols.join(','), config.refreshInterval])
 
-  const handleAddSymbol = () => {
+  const handleAddSymbol = async () => {
     const symbol = newSymbol.trim().toUpperCase()
     
     if (!symbol) {
@@ -56,10 +57,30 @@ export default function Watchlist({ id, config, onConfigChange }: WidgetProps) {
       return
     }
     
-    const updatedSymbols = [...symbols, symbol]
-    onConfigChange({ ...config, symbols: updatedSymbols })
-    setNewSymbol('')
+    // Validate symbol exists via API
+    setIsValidating(true)
     setAddError('')
+    
+    try {
+      const response = await fetch(`/api/market/quote/${symbol}`)
+      const data = await response.json()
+      
+      if (!response.ok || !data.success || !data.data) {
+        setAddError('Symbol not found')
+        setIsValidating(false)
+        return
+      }
+      
+      // Symbol is valid, add it
+      const updatedSymbols = [...symbols, symbol]
+      onConfigChange({ ...config, symbols: updatedSymbols })
+      setNewSymbol('')
+      setAddError('')
+    } catch (err) {
+      setAddError('Failed to validate symbol')
+    } finally {
+      setIsValidating(false)
+    }
   }
 
   const handleRemoveSymbol = (symbolToRemove: string) => {
@@ -95,10 +116,11 @@ export default function Watchlist({ id, config, onConfigChange }: WidgetProps) {
           />
           <button
             onClick={handleAddSymbol}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded font-semibold transition-colors"
+            disabled={isValidating}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Add symbol"
           >
-            +
+            {isValidating ? '...' : '+'}
           </button>
         </div>
         {addError && (
@@ -128,15 +150,15 @@ export default function Watchlist({ id, config, onConfigChange }: WidgetProps) {
                 <tr key={symbol} className="border-b border-gray-700 hover:bg-gray-750 transition-colors group">
                   <td className="px-3 py-2 font-semibold text-white text-sm">{symbol}</td>
                   <td className="px-3 py-2 text-right text-white text-sm">
-                    {quote ? formatCurrency(quote.price) : '-'}
+                    {quote?.price != null ? formatCurrency(quote.price) : '-'}
                   </td>
                   <td className={`px-3 py-2 text-right font-semibold text-sm ${
-                    quote ? getChangeColor(quote.change) : 'text-gray-400'
+                    quote?.change != null ? getChangeColor(quote.change) : 'text-gray-400'
                   }`}>
-                    {quote ? formatPercent(quote.changePercent) : '-'}
+                    {quote?.changePercent != null ? formatPercent(quote.changePercent) : '-'}
                   </td>
                   <td className="px-3 py-2 text-right text-gray-400 text-xs">
-                    {quote && quote.volume
+                    {quote?.volume != null
                       ? (quote.volume / 1000000).toFixed(1) + 'M'
                       : '-'
                     }
