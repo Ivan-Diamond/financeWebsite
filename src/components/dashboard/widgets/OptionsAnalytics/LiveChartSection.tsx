@@ -142,16 +142,20 @@ export default function LiveChartSection({ symbol, data }: LiveChartSectionProps
         📈 {symbol} Chart
       </div>
       
-      {!data || data.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            <div className="text-2xl mb-2">📈</div>
-            <div className="text-xs">Loading...</div>
+      <div className="flex-1 relative overflow-hidden">
+        {/* Always render the chart container so ref can attach */}
+        <div ref={chartContainerRef} className="absolute inset-0" />
+        
+        {/* Show loading overlay when no data */}
+        {(!data || data.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-800/50 backdrop-blur-sm">
+            <div className="text-center text-gray-500">
+              <div className="text-2xl mb-2">📈</div>
+              <div className="text-xs">Loading chart data...</div>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div ref={chartContainerRef} className="flex-1 overflow-hidden" />
-      )}
+        )}
+      </div>
     </div>
   )
 }
