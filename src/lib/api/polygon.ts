@@ -353,8 +353,15 @@ class PolygonClient {
           })
         }
 
-        // Check for next page
-        nextUrl = response.next_url
+        // Check for next page - next_url doesn't include API key, so we need to add it
+        if (response.next_url) {
+          const url = new URL(response.next_url)
+          url.searchParams.set('apiKey', this.apiKey)
+          nextUrl = url.toString()
+        } else {
+          nextUrl = undefined
+        }
+        
         iterations++
         
         // If we have a good number of unique expiries and no more pages, break
