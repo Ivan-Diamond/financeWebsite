@@ -139,6 +139,30 @@ export default function LiveChart({ id, config, onConfigChange }: WidgetProps) {
       }
     }
   }, [candleData])
+  
+  // 🔥 REAL-TIME UPDATES: Update current candle as live ticks come in
+  useEffect(() => {
+    if (!seriesRef.current || !candleData || candleData.length === 0 || !liveQuote) {
+      return
+    }
+    
+    // Get the last (most recent) candle
+    const lastCandle = candleData[candleData.length - 1]
+    const livePrice = liveQuote.price
+    
+    // Update the current building candle with live price
+    const updatedCandle: CandlestickData = {
+      time: Math.floor(lastCandle.time / 1000) as any,
+      open: lastCandle.open,
+      high: Math.max(lastCandle.high, livePrice), // Update high if new price is higher
+      low: Math.min(lastCandle.low, livePrice),   // Update low if new price is lower
+      close: livePrice,                            // Always update close to latest price
+    }
+    
+    // Use update() to modify the last candle in real-time
+    seriesRef.current.update(updatedCandle)
+    
+  }, [liveQuote, candleData])
 
   const changeInterval = async (newInterval: string) => {
     // Update local state AND config
