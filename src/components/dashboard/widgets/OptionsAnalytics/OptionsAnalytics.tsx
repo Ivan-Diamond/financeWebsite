@@ -14,7 +14,7 @@ import LiveChartSection from './LiveChartSection'
 export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetProps) {
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
   const { subscribe, unsubscribe, subscribeToOptions, unsubscribeFromOptions, isConnected } = useWebSocket()
-  const chartCandles = useMarketStore(state => state.candles.get(activeSymbol))
+  const chartCandles = useMarketStore(state => state.getCandles(activeSymbol, '1d'))
   const setCandles = useMarketStore(state => state.setCandles)
   
   // State
@@ -175,8 +175,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
               close: bar.close,
               volume: bar.volume || 0,
             }))
-            setCandles(activeSymbol, candles)
-            console.log(`📈 Loaded ${candles.length} initial candles for ${activeSymbol}`)
+            setCandles(activeSymbol, candles, '1d')
+            console.log(`📈 Loaded ${candles.length} initial candles for ${activeSymbol} at 1d interval`)
           }
         }
       } catch (error) {

@@ -12,18 +12,19 @@ interface Candle {
 
 interface MarketState {
   quotes: Map<string, MarketQuote>
-  candles: Map<string, Candle[]> // symbol -> array of candles
+  candles: Map<string, Candle[]> // Key format: "symbol:interval" e.g. "AAPL:5m"
   subscribedSymbols: Set<string>
   isConnected: boolean
   
   // Actions
   setQuote: (symbol: string, quote: MarketQuote) => void
   setQuotes: (quotes: Map<string, MarketQuote>) => void
-  addCandle: (symbol: string, candle: Candle) => void
-  setCandles: (symbol: string, candles: Candle[]) => void
+  addCandle: (symbol: string, candle: Candle, interval?: string) => void
+  setCandles: (symbol: string, candles: Candle[], interval?: string) => void
+  getCandles: (symbol: string, interval?: string) => Candle[] | undefined
   subscribe: (symbols: string[]) => void
   unsubscribe: (symbols: string[]) => void
-  setConnected: (connected: boolean) => void
+  setConnected: (isConnected: boolean) => void
   clearQuotes: () => void
 }
 
@@ -41,10 +42,11 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   
   setQuotes: (quotes) => set({ quotes }),
   
-  addCandle: (symbol, candle) => set((state) => {
+  addCandle: (symbol, candle, interval = '5m') => set((state) => {
+    const key = `${symbol}:${interval}`
     const newCandles = new Map(state.candles)
     // Create a NEW array (don't mutate existing)
-    const existingCandles = [...(newCandles.get(symbol) || [])]
+    const existingCandles = [...(newCandles.get(key) || [])]
     
     // Check if we should update the last candle or add new one
     if (existingCandles.length > 0) {
@@ -72,15 +74,21 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       existingCandles.push(candle)
     }
     
-    newCandles.set(symbol, existingCandles)
+    newCandles.set(key, existingCandles)
     return { candles: newCandles }
   }),
   
-  setCandles: (symbol, candles) => set((state) => {
+  setCandles: (symbol, candles, interval = '5m') => set((state) => {
+    const key = `${symbol}:${interval}`
     const newCandles = new Map(state.candles)
-    newCandles.set(symbol, candles)
+    newCandles.set(key, candles)
     return { candles: newCandles }
   }),
+  
+  getCandles: (symbol, interval = '5m') => {
+    const key = `${symbol}:${interval}`
+    return get().candles.get(key)
+  },
   
   subscribe: (symbols) => set((state) => {
     const newSubscribed = new Set(state.subscribedSymbols)
