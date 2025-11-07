@@ -32,8 +32,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     return [...optionsData.calls, ...optionsData.puts].map(c => c.contractId)
   }, [optionsData])
   
-  // Subscribe to options automatically
-  const { quotes: optionQuotes } = useOptionsData(contractIds)
+  // Subscribe to options automatically (subscription only, no data returned)
+  useOptionsData(contractIds)
 
   // Configuration
   const strikeCount = config.strikeCount || 5

@@ -9,7 +9,7 @@
  * - No manual subscription management needed
  */
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useMarketStore } from '@/stores/marketStore'
 import { wsManager } from '@/services/WebSocketManager'
 
@@ -55,54 +55,41 @@ export function useMarketData(symbol: string, interval: string = '5m') {
 
 /**
  * Hook for accessing option contract data
+ * Manages subscriptions only - does not return quotes to avoid re-render loops
  */
 export function useOptionsData(contractIds: string[]) {
   const [widgetId] = useState(() => generateWidgetId())
   const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
-  const [currentContracts, setCurrentContracts] = useState<string[]>([])
-  
-  // Get quotes for all contracts
-  const quotes = useMarketStore(state => {
-    const result = new Map()
-    contractIds.forEach(id => {
-      const quote = state.quotes.get(id)
-      if (quote) {
-        result.set(id, quote)
-      }
-    })
-    return result
-  })
+  const currentContractsRef = useRef<string[]>([])
   
   // Subscribe/unsubscribe with proper cleanup
   useEffect(() => {
-    if (contractIds.length === 0) {
-      // Unsubscribe from all if empty
-      if (currentContracts.length > 0) {
-        wsManager.unsubscribeFromOptions(currentContracts, widgetId)
-        setCurrentContracts([])
-      }
-      return
-    }
-    
+    const currentContracts = currentContractsRef.current
     const contractIdsKey = contractIds.join(',')
     const currentKey = currentContracts.join(',')
     
-    // Only update if contracts actually changed
-    if (contractIdsKey !== currentKey) {
-      // Unsubscribe from old contracts
-      if (currentContracts.length > 0) {
-        wsManager.unsubscribeFromOptions(currentContracts, widgetId)
-      }
-      
-      // Subscribe to new contracts
-      wsManager.subscribeToOptions(contractIds, widgetId)
-      setCurrentContracts(contractIds)
+    // Skip if contracts haven't changed
+    if (contractIdsKey === currentKey) {
+      return
     }
     
-    // Cleanup on unmount
+    // Unsubscribe from old contracts if any
+    if (currentContracts.length > 0) {
+      wsManager.unsubscribeFromOptions(currentContracts, widgetId)
+    }
+    
+    // Subscribe to new contracts if any
+    if (contractIds.length > 0) {
+      wsManager.subscribeToOptions(contractIds, widgetId)
+    }
+    
+    // Update ref
+    currentContractsRef.current = contractIds
+    
+    // Cleanup on unmount: unsubscribe from whatever is current at that time
     return () => {
-      if (contractIds.length > 0) {
-        wsManager.unsubscribeFromOptions(contractIds, widgetId)
+      if (currentContractsRef.current.length > 0) {
+        wsManager.unsubscribeFromOptions(currentContractsRef.current, widgetId)
       }
     }
   }, [contractIds.join(','), widgetId])
@@ -114,7 +101,6 @@ export function useOptionsData(contractIds: string[]) {
   }, [])
   
   return {
-    quotes,
     isConnected,
   }
 }
