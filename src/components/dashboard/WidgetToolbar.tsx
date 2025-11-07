@@ -5,6 +5,7 @@ import { useDashboardStore } from '@/stores/dashboardStore'
 import { WIDGET_REGISTRY, createWidget, getCategories, getWidgetsByCategory } from './widgets/registry'
 import { WidgetType } from './types'
 import { SymbolSelector } from './SymbolSelector'
+import { LayoutManager } from './LayoutManager'
 
 export function WidgetToolbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,11 +22,6 @@ export function WidgetToolbar() {
     const widget = createWidget(type)
     addWidget(widget)
     setIsOpen(false)
-  }
-
-  const handleSaveLayout = () => {
-    // Layout is auto-saved via zustand persist middleware
-    alert('Layout saved successfully!')
   }
 
   const handleClearAll = () => {
@@ -118,16 +114,8 @@ export function WidgetToolbar() {
 
         {/* Right: Actions */}
         <div className="flex items-center space-x-2">
-          {/* Save Layout Button */}
-          <button
-            onClick={handleSaveLayout}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-xs"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-            </svg>
-            <span>Save Layout</span>
-          </button>
+          {/* Layout Manager (Save/Load) */}
+          <LayoutManager />
 
           {/* Clear All Button */}
           {widgets.length > 0 && (
