@@ -35,29 +35,37 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
       try {
         const endDate = new Date()
         const startDate = new Date()
-        startDate.setDate(startDate.getDate() - 1) // Last 24 hours
+        startDate.setDate(startDate.getDate() - 7) // Last 7 days for more data
         
-        const response = await fetch(
-          `/api/market/historical/${activeSymbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=5`
-        )
+        const url = `/api/market/historical/${activeSymbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=5`
+        console.log(`📊 OptionsAnalytics fetching chart data: ${url}`)
         
-        if (response.ok) {
-          const result = await response.json()
-          if (result.success && result.data && result.data.length > 0) {
-            const candles = result.data.map((bar: any) => ({
-              time: bar.time,
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-              volume: bar.volume || 0,
-            }))
-            setCandles(activeSymbol, candles, chartIntervalConfig)
-            console.log(`📊 OptionsAnalytics loaded ${candles.length} chart candles for ${activeSymbol}`)
-          }
+        const response = await fetch(url)
+        
+        if (!response.ok) {
+          console.error(`📊 Chart fetch failed: ${response.status} ${response.statusText}`)
+          return
+        }
+        
+        const result = await response.json()
+        console.log(`📊 Chart API response:`, { success: result.success, dataLength: result.data?.length })
+        
+        if (result.success && result.data && result.data.length > 0) {
+          const candles = result.data.map((bar: any) => ({
+            time: bar.time,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume || 0,
+          }))
+          setCandles(activeSymbol, candles, chartIntervalConfig)
+          console.log(`📊 OptionsAnalytics loaded ${candles.length} chart candles for ${activeSymbol}`)
+        } else {
+          console.warn(`📊 No chart data available for ${activeSymbol}`)
         }
       } catch (error) {
-        console.error('Failed to load chart data:', error)
+        console.error('📊 Failed to load chart data:', error)
       }
     }
     

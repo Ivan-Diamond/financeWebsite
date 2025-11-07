@@ -11,6 +11,11 @@ export default function LiveChartSection({ symbol, data }: LiveChartSectionProps
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const [chartHeight, setChartHeight] = useState(300)
+  
+  // Debug logging
+  useEffect(() => {
+    console.log(`📈 LiveChartSection render:`, { symbol, dataLength: data?.length, chartHeight })
+  }, [symbol, data, chartHeight])
 
   // Measure container height
   useEffect(() => {
