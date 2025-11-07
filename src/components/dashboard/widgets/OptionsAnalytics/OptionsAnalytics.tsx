@@ -23,9 +23,11 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
   const [error, setError] = useState<string | null>(null)
   
   // Use new hooks - handle subscriptions automatically
-  const chartIntervalConfig = config.interval || '5m'
-  const { candleData: chartCandles, isConnected } = useMarketData(activeSymbol, chartIntervalConfig)
-  const setCandles = useMarketStore(state => state.setCandles)
+  const chartIntervalConfig = '5m' // Force 5m interval for OptionsAnalytics chart
+  const { isConnected } = useMarketData(activeSymbol, chartIntervalConfig)
+  
+  // Local state for chart data to avoid interference from other widgets
+  const [chartCandles, setChartCandles] = useState<Array<{ time: number; open: number; high: number; low: number; close: number }>>([])
   
   // Fetch initial historical data for the chart
   useEffect(() => {
@@ -57,9 +59,8 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
             high: bar.high,
             low: bar.low,
             close: bar.close,
-            volume: bar.volume || 0,
           }))
-          setCandles(activeSymbol, candles, chartIntervalConfig)
+          setChartCandles(candles)
           console.log(`📊 OptionsAnalytics loaded ${candles.length} chart candles for ${activeSymbol}`)
         } else {
           console.warn(`📊 No chart data available for ${activeSymbol}`)
@@ -70,7 +71,7 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
     }
     
     loadChartData()
-  }, [activeSymbol, chartIntervalConfig, setCandles])
+  }, [activeSymbol])
   
   // Get contract IDs for subscription
   const contractIds = useMemo(() => {
@@ -203,44 +204,6 @@ export default function OptionsAnalytics({ id, config, onConfigChange }: WidgetP
       setLoading(false)
     }
   }, [activeSymbol, selectedExpiry])
-
-  // Load initial chart data
-  useEffect(() => {
-    const loadInitialChartData = async () => {
-      if (!activeSymbol) return
-      
-      try {
-        // Fetch last hour of data
-        const endDate = new Date()
-        const startDate = new Date(endDate.getTime() - 60 * 60 * 1000) // 1 hour ago
-        
-        const response = await fetch(
-          `/api/market/historical/${activeSymbol}?from=${startDate.toISOString().split('T')[0]}&to=${endDate.toISOString().split('T')[0]}&timespan=minute&multiplier=1`
-        )
-        
-        if (response.ok) {
-          const result = await response.json()
-          if (result.success && result.data) {
-            // Convert to candle format and store
-            const candles = result.data.map((bar: any) => ({
-              time: bar.time,
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-              volume: bar.volume || 0,
-            }))
-            setCandles(activeSymbol, candles, '1d')
-            console.log(`📈 Loaded ${candles.length} initial candles for ${activeSymbol} at 1d interval`)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading initial chart data:', error)
-      }
-    }
-
-    loadInitialChartData()
-  }, [activeSymbol, setCandles]) // Only re-run when symbol changes
 
   // Generate simulated mini-graph data
   // In production, this would fetch real intraday data for each contract
