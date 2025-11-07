@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { WidgetProps } from '../../types'
 import { formatCurrency } from '@/lib/utils'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketStore } from '@/stores/marketStore'
 import { useMarketQuote, useOptionsData } from '@/hooks/useMarketData'
 
 interface OptionData {
@@ -26,8 +27,11 @@ export default function OptionsChain({ id, config }: WidgetProps) {
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
   
-  // Use WebSocket for real-time stock price
-  const { quote: stockQuote } = useMarketQuote(symbol)
+  // Use WebSocket for real-time stock price (subscription only)
+  useMarketQuote(symbol)
+  
+  // Get quote directly from store
+  const stockQuote = useMarketStore(state => state.quotes.get(symbol))
   
   // Get contract IDs from chain for WebSocket subscription
   const contractIds = useMemo(() => {

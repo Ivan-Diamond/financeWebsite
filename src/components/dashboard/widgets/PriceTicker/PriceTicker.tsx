@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
 import { formatCurrency, formatPercent, getChangeColor } from '@/lib/utils'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketStore } from '@/stores/marketStore'
 import { useMarketQuote } from '@/hooks/useMarketData'
 
 export default function PriceTicker({ id, config }: WidgetProps) {
-  const [loading, setLoading] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
   
   // Use selector for proper reactivity
@@ -16,13 +16,15 @@ export default function PriceTicker({ id, config }: WidgetProps) {
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
   
-  // Use WebSocketManager for real-time quotes
-  const { quote, isConnected } = useMarketQuote(symbol)
+  // Use WebSocketManager for real-time quotes (subscription only)
+  const { isConnected } = useMarketQuote(symbol)
+  
+  // Get quote directly from store (avoids re-render loop)
+  const quote = useMarketStore(state => state.quotes.get(symbol))
   
   // Handle initial loading state
   useEffect(() => {
     if (quote) {
-      setLoading(false)
       setInitialLoad(false)
     }
   }, [quote])

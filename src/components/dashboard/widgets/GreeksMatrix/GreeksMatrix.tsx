@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketStore } from '@/stores/marketStore'
 import { useMarketQuote } from '@/hooks/useMarketData'
 
 export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps) {
@@ -18,8 +19,11 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
   const symbol = config.symbol || activeSymbol
   const greek = config.greek || 'delta'
   
-  // Use WebSocket for real-time stock price
-  const { quote: stockQuote } = useMarketQuote(symbol)
+  // Use WebSocket for real-time stock price (subscription only)
+  useMarketQuote(symbol)
+  
+  // Get quote directly from store
+  const stockQuote = useMarketStore(state => state.quotes.get(symbol))
 
   useEffect(() => {
     fetchData()

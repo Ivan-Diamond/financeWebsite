@@ -113,8 +113,8 @@ export function useMarketQuote(symbol: string) {
   const [widgetId] = useState(() => generateWidgetId())
   const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
   
-  // Get quote from store
-  const quote = useMarketStore(state => state.quotes.get(symbol))
+  // IMPORTANT: Don't return quotes here to avoid re-render issues
+  // Widgets should access quotes directly from store when needed
   
   // Subscribe on mount, unsubscribe on unmount
   useEffect(() => {
@@ -136,29 +136,18 @@ export function useMarketQuote(symbol: string) {
   }, [])
   
   return {
-    quote,
     isConnected,
   }
 }
 
 /**
  * Hook for accessing multiple quotes at once (e.g., for watchlists)
+ * IMPORTANT: Only manages subscriptions, does not return quotes
+ * Widgets should access quotes directly from store to avoid re-render loops
  */
 export function useMarketQuotes(symbols: string[]) {
   const [widgetId] = useState(() => generateWidgetId())
   const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
-  
-  // Get all quotes from store
-  const quotes = useMarketStore(state => {
-    const result: Record<string, any> = {}
-    symbols.forEach(symbol => {
-      const quote = state.quotes.get(symbol)
-      if (quote) {
-        result[symbol] = quote
-      }
-    })
-    return result
-  })
   
   // Subscribe to all symbols
   useEffect(() => {
@@ -184,7 +173,6 @@ export function useMarketQuotes(symbols: string[]) {
   }, [])
   
   return {
-    quotes,
     isConnected,
   }
 }
