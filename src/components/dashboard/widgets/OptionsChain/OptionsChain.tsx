@@ -58,7 +58,8 @@ export default function OptionsChain({ id, config }: WidgetProps) {
       const response = await fetch(`/api/options/expiries/${symbol}`)
       const data = await response.json()
       if (data.success && data.data.length > 0) {
-        setExpiries(data.data.slice(0, 5)) // First 5 expiries
+        // Show more expiries to give users better visibility
+        setExpiries(data.data.slice(0, 15)) // First 15 expiries (was 5)
         setSelectedExpiry(data.data[0])
       }
     } catch (error) {

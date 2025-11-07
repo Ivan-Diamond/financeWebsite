@@ -327,25 +327,43 @@ class PolygonClient {
   /**
    * Get available options expiration dates for a symbol
    * Endpoint: /v3/reference/options/contracts
+   * Uses pagination to ensure we capture ALL expiry dates
    */
   async getOptionsExpiries(symbol: string): Promise<string[]> {
     try {
-      const url = this.buildUrl('/v3/reference/options/contracts', {
+      const expirySet = new Set<string>()
+      let nextUrl: string | undefined = this.buildUrl('/v3/reference/options/contracts', {
         underlying_ticker: symbol.toUpperCase(),
-        limit: 1000,
+        limit: 1000, // Max per request
       })
-      const response = await this.request<any>(url)
 
-      if (!response.results || response.results.length === 0) {
-        return []
+      // Paginate through all contracts to get ALL unique expiries
+      let iterations = 0
+      const maxIterations = 10 // Safety limit (10k contracts max)
+      
+      while (nextUrl && iterations < maxIterations) {
+        const response: any = await this.request<any>(nextUrl)
+
+        if (response.results && response.results.length > 0) {
+          // Extract expiration dates from this batch
+          response.results.forEach((contract: any) => {
+            if (contract.expiration_date) {
+              expirySet.add(contract.expiration_date)
+            }
+          })
+        }
+
+        // Check for next page
+        nextUrl = response.next_url
+        iterations++
+        
+        // If we have a good number of unique expiries and no more pages, break
+        if (!nextUrl || expirySet.size > 100) break // 100+ expiries is unlikely
       }
 
-      // Extract unique expiration dates and sort them
-      const dates = response.results
-        .map((contract: any) => contract.expiration_date)
-        .filter((date: any): date is string => typeof date === 'string')
-      const expiries: string[] = Array.from(new Set(dates))
-      return expiries.sort()
+      const expiries = Array.from(expirySet).sort()
+      console.log(`📅 Found ${expiries.length} unique expiry dates for ${symbol}`)
+      return expiries
     } catch (error) {
       console.error('Failed to fetch options expiries:', error)
       return []

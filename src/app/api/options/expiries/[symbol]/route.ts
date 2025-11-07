@@ -28,16 +28,9 @@ export async function GET(
       )
     }
 
-    // Get options chain to extract expiry dates
-    const chain = await polygonClient.getOptionsChain(symbol.toUpperCase())
-
-    // Extract unique expiry dates
-    const expirySet = new Set<string>()
-    chain.forEach(opt => {
-      if (opt.expiry) expirySet.add(opt.expiry)
-    })
-
-    const expiries = Array.from(expirySet).sort()
+    // Use dedicated endpoint to get ALL expiry dates (up to 1000 contracts)
+    // This is more efficient and comprehensive than extracting from snapshot
+    const expiries = await polygonClient.getOptionsExpiries(symbol.toUpperCase())
 
     return NextResponse.json({
       success: true,
