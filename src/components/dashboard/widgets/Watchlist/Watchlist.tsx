@@ -1,40 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
 import { formatCurrency, formatPercent, getChangeColor } from '@/lib/utils'
+import { useMarketQuotes } from '@/hooks/useMarketData'
 
 export default function Watchlist({ id, config }: WidgetProps) {
-  const [quotes, setQuotes] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(true)
-  
   const symbols = config.symbols || ['AAPL', 'TSLA', 'NVDA']
-
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      try {
-        const response = await fetch(`/api/market/quotes?symbols=${symbols.join(',')}`)
-        const data = await response.json()
-        
-        if (data.success) {
-          const quotesMap: Record<string, any> = {}
-          data.data.forEach((quote: any) => {
-            if (quote.symbol) quotesMap[quote.symbol] = quote
-          })
-          setQuotes(quotesMap)
-        }
-      } catch (err) {
-        console.error('Failed to fetch watchlist:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchQuotes()
-    // Update every 3 seconds for real-time feel
-    const interval = setInterval(fetchQuotes, config.refreshInterval || 3000)
-    return () => clearInterval(interval)
-  }, [symbols.join(','), config.refreshInterval])
+  
+  // Use WebSocketManager for real-time quotes
+  const { quotes, isConnected } = useMarketQuotes(symbols)
 
   return (
     <div className="flex flex-col h-full">

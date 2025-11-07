@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { WidgetProps } from '../../types'
 import { formatCurrency } from '@/lib/utils'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketQuote, useOptionsData } from '@/hooks/useMarketData'
 
 interface OptionData {
   strike: number
@@ -13,7 +14,7 @@ interface OptionData {
 
 export default function OptionsChain({ id, config }: WidgetProps) {
   const [chain, setChain] = useState<OptionData[]>([])
-  const [stockPrice, setStockPrice] = useState(0)
+  const [chainData, setChainData] = useState<any>(null)
   const [atmStrike, setAtmStrike] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expiries, setExpiries] = useState<string[]>([])
@@ -24,6 +25,18 @@ export default function OptionsChain({ id, config }: WidgetProps) {
   
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
+  
+  // Use WebSocket for real-time stock price
+  const { quote: stockQuote } = useMarketQuote(symbol)
+  
+  // Get contract IDs from chain for WebSocket subscription
+  const contractIds = useMemo(() => {
+    if (!chainData) return []
+    return chainData.chain.map((opt: any) => opt.contractId).filter(Boolean)
+  }, [chainData])
+  
+  // Subscribe to real-time option updates
+  useOptionsData(contractIds)
 
   useEffect(() => {
     fetchExpiries()
@@ -31,10 +44,7 @@ export default function OptionsChain({ id, config }: WidgetProps) {
 
   useEffect(() => {
     if (selectedExpiry) {
-      fetchChain(false) // First load
-      // Auto-refresh every 15 seconds without blocking UI
-      const interval = setInterval(() => fetchChain(true), 15000)
-      return () => clearInterval(interval)
+      fetchChain() // Load once, then rely on WebSocket for updates
     }
   }, [symbol, activeSymbol, selectedExpiry])
 
@@ -51,19 +61,16 @@ export default function OptionsChain({ id, config }: WidgetProps) {
     }
   }
 
-  const fetchChain = async (isUpdate = false) => {
+  const fetchChain = async () => {
     try {
-      // Only show loading on first load, not on updates
-      if (!isUpdate) {
-        setLoading(true)
-      }
+      setLoading(true)
       const response = await fetch(
         `/api/options/chain/${symbol}?expiry=${selectedExpiry}&strikeRange=10`
       )
       const data = await response.json()
       
       if (data.success) {
-        setStockPrice(data.data.stockPrice)
+        setChainData(data.data)
         setAtmStrike(data.data.atmStrike)
         
         // Group by strike
@@ -111,7 +118,7 @@ export default function OptionsChain({ id, config }: WidgetProps) {
               Options Chain: {symbol}
             </div>
             <div className="text-xs text-gray-400 mt-1">
-              Spot: {formatCurrency(stockPrice)} • ATM: {formatCurrency(atmStrike)}
+              Spot: {stockQuote ? formatCurrency(stockQuote.price) : '-'} • ATM: {formatCurrency(atmStrike)}
             </div>
           </div>
         </div>
@@ -159,8 +166,9 @@ export default function OptionsChain({ id, config }: WidgetProps) {
             <tbody>
               {chain.map((row) => {
                 const isATM = Math.abs(row.strike - atmStrike) < 2.5
-                const callITM = row.strike < stockPrice
-                const putITM = row.strike > stockPrice
+                const currentPrice = stockQuote?.price || atmStrike
+                const callITM = row.strike < currentPrice
+                const putITM = row.strike > currentPrice
                 
                 return (
                   <tr

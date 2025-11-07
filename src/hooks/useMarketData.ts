@@ -106,6 +106,90 @@ export function useOptionsData(contractIds: string[]) {
 }
 
 /**
+ * Hook for accessing live quote data for a single symbol
+ * Simpler than useMarketData - just for price/quote display widgets
+ */
+export function useMarketQuote(symbol: string) {
+  const [widgetId] = useState(() => generateWidgetId())
+  const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
+  
+  // Get quote from store
+  const quote = useMarketStore(state => state.quotes.get(symbol))
+  
+  // Subscribe on mount, unsubscribe on unmount
+  useEffect(() => {
+    if (!symbol) return
+    
+    // Subscribe to symbol
+    wsManager.subscribeToStock(symbol, widgetId)
+    
+    // Cleanup: unsubscribe
+    return () => {
+      wsManager.unsubscribeFromStock(symbol, widgetId)
+    }
+  }, [symbol, widgetId])
+  
+  // Listen to connection status
+  useEffect(() => {
+    const unsubscribe = wsManager.onConnection(setIsConnected)
+    return unsubscribe
+  }, [])
+  
+  return {
+    quote,
+    isConnected,
+  }
+}
+
+/**
+ * Hook for accessing multiple quotes at once (e.g., for watchlists)
+ */
+export function useMarketQuotes(symbols: string[]) {
+  const [widgetId] = useState(() => generateWidgetId())
+  const [isConnected, setIsConnected] = useState(wsManager.getConnectionStatus())
+  
+  // Get all quotes from store
+  const quotes = useMarketStore(state => {
+    const result: Record<string, any> = {}
+    symbols.forEach(symbol => {
+      const quote = state.quotes.get(symbol)
+      if (quote) {
+        result[symbol] = quote
+      }
+    })
+    return result
+  })
+  
+  // Subscribe to all symbols
+  useEffect(() => {
+    if (symbols.length === 0) return
+    
+    // Subscribe to each symbol
+    symbols.forEach(symbol => {
+      wsManager.subscribeToStock(symbol, widgetId)
+    })
+    
+    // Cleanup: unsubscribe from all
+    return () => {
+      symbols.forEach(symbol => {
+        wsManager.unsubscribeFromStock(symbol, widgetId)
+      })
+    }
+  }, [symbols.join(','), widgetId])
+  
+  // Listen to connection status
+  useEffect(() => {
+    const unsubscribe = wsManager.onConnection(setIsConnected)
+    return unsubscribe
+  }, [])
+  
+  return {
+    quotes,
+    isConnected,
+  }
+}
+
+/**
  * Hook for connection status only
  */
 export function useConnectionStatus() {

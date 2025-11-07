@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketQuote } from '@/hooks/useMarketData'
 
 export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps) {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [optionsData, setOptionsData] = useState<any[]>([])
-  const [summary, setSummary] = useState({ totalCallDelta: 0, totalPutDelta: 0, putCallRatio: 0, stockPrice: 0 })
+  const [summary, setSummary] = useState({ totalCallDelta: 0, totalPutDelta: 0, putCallRatio: 0 })
   
   // Use selector for proper reactivity  
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
@@ -16,6 +17,9 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
   const greek = config.greek || 'delta'
+  
+  // Use WebSocket for real-time stock price
+  const { quote: stockQuote } = useMarketQuote(symbol)
 
   useEffect(() => {
     fetchData()
@@ -48,7 +52,6 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
           totalCallDelta: callVolume,
           totalPutDelta: putVolume,
           putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
-          stockPrice: chainData.data.stockPrice || 0,
         })
       }
     } catch (error) {
@@ -131,7 +134,7 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
             <div className="bg-gray-700 rounded-lg p-4">
               <div className="text-sm font-semibold text-white mb-3 flex items-center justify-between">
                 <span>{greek === 'delta' ? 'Delta (Δ)' : greek === 'gamma' ? 'Gamma (Γ)' : greek === 'theta' ? 'Theta (Θ)' : 'Vega (ν)'} by Strike</span>
-                <span className="text-xs text-gray-400">ATM: ${summary.stockPrice.toFixed(0)}</span>
+                <span className="text-xs text-gray-400">ATM: ${stockQuote ? stockQuote.price.toFixed(0) : '-'}</span>
               </div>
               
               {optionsData.length > 0 ? (
@@ -141,7 +144,7 @@ export default function GreeksMatrix({ id, config, onConfigChange }: WidgetProps
                     .slice(0, 10)
                     .map((opt: any) => {
                       const greekValue = opt[greek] || 0
-                      const isATM = Math.abs(opt.strike - summary.stockPrice) < 5
+                      const isATM = stockQuote ? Math.abs(opt.strike - stockQuote.price) < 5 : false
                       const barWidth = greek === 'delta' ? Math.abs(greekValue) * 100 : Math.min(Math.abs(greekValue) * 1000, 100)
                       
                       return (

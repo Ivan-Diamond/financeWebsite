@@ -4,45 +4,30 @@ import { useEffect, useState } from 'react'
 import { WidgetProps } from '../../types'
 import { formatCurrency, formatPercent, getChangeColor } from '@/lib/utils'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { useMarketQuote } from '@/hooks/useMarketData'
 
 export default function PriceTicker({ id, config }: WidgetProps) {
-  const [quote, setQuote] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [initialLoad, setInitialLoad] = useState(true)
   
   // Use selector for proper reactivity
   const activeSymbol = useDashboardStore(state => state.activeSymbol)
 
   // Use widget-specific symbol if configured, otherwise use global activeSymbol
   const symbol = config.symbol || activeSymbol
-
+  
+  // Use WebSocketManager for real-time quotes
+  const { quote, isConnected } = useMarketQuote(symbol)
+  
+  // Handle initial loading state
   useEffect(() => {
-    const fetchQuote = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await fetch(`/api/market/quote/${symbol}`)
-        const data = await response.json()
-        
-        if (data.success) {
-          setQuote(data.data)
-        } else {
-          setError(data.error || 'Failed to fetch quote')
-        }
-      } catch (err) {
-        setError('Network error')
-      } finally {
-        setLoading(false)
-      }
+    if (quote) {
+      setLoading(false)
+      setInitialLoad(false)
     }
+  }, [quote])
 
-    fetchQuote()
-    // Update every 2 seconds for real-time feel
-    const interval = setInterval(fetchQuote, config.refreshInterval || 2000)
-    return () => clearInterval(interval)
-  }, [symbol, activeSymbol, config.refreshInterval])
-
-  if (loading && !quote) {
+  if (initialLoad && !quote) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -50,10 +35,10 @@ export default function PriceTicker({ id, config }: WidgetProps) {
     )
   }
 
-  if (error) {
+  if (!isConnected) {
     return (
-      <div className="flex items-center justify-center h-full text-red-400 text-sm px-4 text-center">
-        {error}
+      <div className="flex items-center justify-center h-full text-yellow-400 text-sm px-4 text-center">
+        Connecting to live feed...
       </div>
     )
   }
